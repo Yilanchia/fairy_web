@@ -1,0 +1,15 @@
+{
+  "name": "fairy-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fairy Web — authorized web pentest hands for the Fairy / Verdex toolkit",
+  "scripts": {
+    "test": "node --test \"tests/*.test.mjs\"",
+    "scan": "node src/cli.js",
+    "mcp": "node src/cli.js mcp"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
