@@ -65,8 +65,41 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `web_scan` | 一轮被动+轻主动检测,按严重度出候选 | 是 |
 | `web_report` | `web_scan` + 不可变快照 + 脱敏 HAR | 是 |
 | `har_ingest` | 静态分析你导出的 HAR,顺带列主机清单 | 否 |
+| `fairy_ledger_init` / `fairy_ledger_show` | 建/看作战账本(资产/事实/发现/意图/覆盖) | 否 |
+| `fairy_ledger_add` | 追加资产/事实/发现/意图,自动去重编号 | 否 |
+| `fairy_ledger_advance` | 领取/结单意图,改发现状态 | 否 |
+| `fairy_ledger_ingest` | 把最近一次扫描报告导入账本 | 否 |
+| `fairy_chain_plan` | 按账本匹配攻击链,给最小证明与停止点 | 否 |
 
 所有网络工具都要求 `project`(作业目录),scope 与产物都落在那里,天然按 engagement 隔离。
+
+## 作战账本与攻击链
+
+一次 engagement 不只是"扫了一次",而是一条有状态的推进链。账本落在
+`.fairy/ledger.json`(不提交、不联网):
+
+```powershell
+# CLI 也可以直接看
+node -e "import('./src/ledger.js').then(m=>console.log(JSON.stringify(m.summary(m.loadLedger('D:/work/lab')),null,2)))"
+```
+
+MCP 里的典型节奏:
+
+```
+fairy_ledger_init(project)
+web_report(project, urls, crawl=true)
+fairy_ledger_ingest(project)            # 资产/技术栈/候选发现入账
+fairy_chain_plan(project)               # ready 的链 + 每步证明 + 停止点
+fairy_ledger_add(kind="fact", data={statement:"已准备测试账号 A/B", tags:["accounts"]})
+fairy_ledger_advance(action="claim")    # 领取下一步意图
+fairy_ledger_advance(action="done", intent_id="I-001", note="...")
+```
+
+攻击链知识库在 [`src/playbooks.js`](src/playbooks.js):CORS+凭证、开放重定向+OAuth、
+反射 XSS、Git 源码泄露、BOLA、SSRF、API 文档、SourceMap。每条链都写清楚
+**最小证明、风险、是否需要人批准、在哪停**,只产计划不发请求。
+
+战略与 ARTEX 对标见 [`docs/STRATEGY.md`](docs/STRATEGY.md)。
 
 ## 授权护照
 
@@ -173,20 +206,26 @@ src/
   checks.js      被动/主动检测与暴露面
   scan.js        编排、去重、统计
   har.js         HAR 导入 / 脱敏导出
+  ledger.js      作战账本:资产/事实/发现/意图/覆盖
+  playbooks.js   web 攻击链知识库与匹配
   report.js      JSON / Markdown / 自包含 HTML
   mcp.js         MCP(stdio)
   cli.js         CLI
+docs/            战略与对标
 tests/           靶场 + 测试
 scripts/         demo 靶场、Verdex 桥、dsh 挂载
 ```
 
 ## 路线图
 
-- [ ] 认证态对比:两个 Cookie 会话跑同一 URL,做水平越权(BOLA)证据差分
-- [ ] HAR 重放:把 Burp 里的请求按 scope 重放,替换标记后比对
-- [ ] JS 静态提取:从打包产物里捞接口/参数,并入攻击面
-- [ ] OpenAPI/Swagger 导入:按 schema 生成参数清单
-- [ ] 浏览器动态验证(Playwright):反射点上下文确认、DOM XSS 判定
+- [x] v0.2 作战账本(资产/事实/发现/意图/覆盖)+ 8 条攻击链知识库
+- [ ] v0.3 认证态对比:登录录制 + 双账号 BOLA 证据差分
+- [ ] v0.3 角色/权限矩阵:普通用户 vs 管理员端点
+- [ ] v0.4 浏览器运行时(Playwright):SPA/XHR/DOM/控制台
+- [ ] v0.4 HAR 重放:把 Burp 请求按 scope 重放并做差分
+- [ ] v0.5 参数级差分:SQLi/NoSQLi/SSTI/路径穿越,只判存在
+- [ ] v0.5 报告 v2:CVSS/OWASP/复现步骤/修复建议/披露信
+- [ ] 交互审批门:高风险步骤暂停等确认
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 
 ## 已知限制

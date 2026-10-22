@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import readline from "node:readline";
 import path from "node:path";
 import { saveScope, loadScope, scopeSummary } from "./scope.js";
@@ -6,6 +7,22 @@ import { crawl } from "./crawl.js";
 import { ingestHar } from "./har.js";
 import { executeScan, scan } from "./scan.js";
 import { writeReport } from "./report.js";
+import {
+  initLedger,
+  loadLedger,
+  appendLedger,
+  addAsset,
+  addFact,
+  addFinding,
+  addIntent,
+  claimNextIntent,
+  completeIntent,
+  updateFinding,
+  summary as ledgerSummary,
+  ingestScanReport,
+  sortFindings,
+} from "./ledger.js";
+import { planChains } from "./playbooks.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = { name: "fairy", version: "0.1.0" };
@@ -81,6 +98,167 @@ const TOOLS = [
     description: "显示当前授权护照:依据、include/exclude、限速与上限。不发请求。",
     inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" } } },
     run: async (args) => ({ ok: true, scope: scopeSummary(loadScope(projectOf(args))) }),
+  },
+  {
+    name: "fairy_ledger_init",
+    description:
+      "建立作战账本(.fairy/ledger.json):资产/事实/发现/意图/覆盖。需要已有授权护照。账本是 engagement 级的,报告与审计都围绕它组织。",
+    inputSchema: {
+      type: "object",
+      required: ["project"],
+      properties: {
+        project: { type: "string" },
+        name: { type: "string", description: "engagement 名称,默认取目录名。" },
+      },
+    },
+    run: async (args) => {
+      const result = initLedger(projectOf(args), { name: args.name });
+      return { ok: true, created: result.created, summary: ledgerSummary(result.ledger) };
+    },
+  },
+  {
+    name: "fairy_ledger_show",
+    description:
+      "查看账本。view=summary 给计数/覆盖/下一条意图(最省上下文);assets/facts/findings/intents/coverage 给对应明细。只读。",
+    inputSchema: {
+      type: "object",
+      required: ["project"],
+      properties: {
+        project: { type: "string" },
+        view: { type: "string", enum: ["summary", "assets", "facts", "findings", "intents", "coverage"] },
+      },
+    },
+    run: async (args) => {
+      const ledger = loadLedger(projectOf(args));
+      const view = args.view || "summary";
+      if (view === "summary") return { ok: true, summary: ledgerSummary(ledger) };
+      if (view === "assets") return { ok: true, assets: ledger.assets.slice(0, 300) };
+      if (view === "facts") return { ok: true, facts: ledger.facts.slice(-150) };
+      if (view === "findings") return { ok: true, findings: sortFindings(ledger.findings).slice(0, 150) };
+      if (view === "intents") return { ok: true, intents: ledger.intents };
+      if (view === "coverage") {
+        return {
+          ok: true,
+          coverage: ledger.coverage,
+          tested_assets: ledger.assets.filter((a) => a.tested).slice(0, 200),
+          untested_assets: ledger.assets.filter((a) => !a.tested).slice(0, 200),
+        };
+      }
+      throw new Error(`未知 view:${view}`);
+    },
+  },
+  {
+    name: "fairy_ledger_add",
+    description:
+      "向账本追加记录。kind=asset{type,value,parent_id?,tags?} / fact{statement,confidence?,tags?,asset_ids?,evidence?} / finding{title,severity,kind,where,detail?,impact?,owasp?,cvss?,remediation?,evidence?} / intent{goal,depends_on?,asset_ids?,risk?,requires_approval?,stop_condition?}。自动去重并分配 AS/FT/V/I 编号。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "kind", "data"],
+      properties: {
+        project: { type: "string" },
+        kind: { type: "string", enum: ["asset", "fact", "finding", "intent"] },
+        data: { type: "object", description: "按 kind 的结构传字段。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const kind = String(args.kind || "");
+      const data = args.data || {};
+      const result = appendLedger(project, (ledger) => {
+        if (kind === "asset") return addAsset(ledger, data);
+        if (kind === "fact") return addFact(ledger, data);
+        if (kind === "finding") return addFinding(ledger, data);
+        if (kind === "intent") return addIntent(ledger, data);
+        throw new Error(`未知 kind:${kind}`);
+      });
+      return { ok: true, kind, result, summary: ledgerSummary(loadLedger(project)) };
+    },
+  },
+  {
+    name: "fairy_ledger_advance",
+    description:
+      "推进账本。action=claim 领取下一条依赖已满足的意图;done/blocked/skipped 结单(需 intent_id,note 可写结论);finding-status 改发现状态(需 finding_id,status=candidate/verified/false-positive/remediated/accepted-risk,patch 可带 impact/remediation/cvss/owasp)。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "action"],
+      properties: {
+        project: { type: "string" },
+        action: { type: "string", enum: ["claim", "done", "blocked", "skipped", "finding-status"] },
+        intent_id: { type: "string" },
+        finding_id: { type: "string" },
+        status: { type: "string" },
+        note: { type: "string" },
+        patch: { type: "object" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const action = String(args.action || "");
+      const result = appendLedger(project, (ledger) => {
+        if (action === "claim") {
+          const intent = claimNextIntent(ledger);
+          return intent || { none: true, reason: "没有依赖已满足的 todo 意图" };
+        }
+        if (["done", "blocked", "skipped"].includes(action)) {
+          if (!args.intent_id) throw new Error("需要 intent_id");
+          return completeIntent(ledger, args.intent_id, { status: action, note: args.note });
+        }
+        if (action === "finding-status") {
+          if (!args.finding_id) throw new Error("需要 finding_id");
+          if (!args.status) throw new Error("需要 status");
+          return updateFinding(ledger, args.finding_id, { ...(args.patch || {}), status: args.status });
+        }
+        throw new Error(`未知 action:${action}`);
+      });
+      return { ok: true, action, result, summary: ledgerSummary(loadLedger(project)) };
+    },
+  },
+  {
+    name: "fairy_chain_plan",
+    description:
+      "基于账本里的发现与事实匹配 web 攻击链知识库(CORS+凭证、开放重定向+OAuth、反射 XSS、Git 泄露、BOLA、SSRF、API 文档、SourceMap),输出 ready/blocked、每步的最小证明、风险、审批要求与停止点。只产计划,不发请求。",
+    inputSchema: { type: "object", required: ["project"], properties: { project: { type: "string" } } },
+    run: async (args) => {
+      const project = projectOf(args);
+      const ledger = loadLedger(project);
+      const chains = planChains(ledger);
+      return {
+        ok: true,
+        ready: chains.filter((c) => c.readiness === "ready").length,
+        blocked: chains.filter((c) => c.readiness === "blocked").length,
+        chains,
+      };
+    },
+  },
+  {
+    name: "fairy_ledger_ingest",
+    description:
+      "把最近一次 web_scan/web_report 的 report.json 导入账本(资产/技术栈/候选发现/覆盖),让攻击链规划有素材。只读报告,写账本。",
+    inputSchema: {
+      type: "object",
+      required: ["project"],
+      properties: {
+        project: { type: "string" },
+        report_path: { type: "string", description: "可选:指定 report.json;默认取 .fairy/runs 下最新一次。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      let file = args.report_path ? path.resolve(String(args.report_path)) : null;
+      if (!file) {
+        const runsDir = path.join(project, ".fairy", "runs");
+        if (!fs.existsSync(runsDir)) throw new Error("还没有报告可导入:先跑 web_report");
+        const runs = fs
+          .readdirSync(runsDir)
+          .filter((name) => fs.existsSync(path.join(runsDir, name, "report.json")))
+          .sort();
+        if (!runs.length) throw new Error("还没有报告可导入:先跑 web_report");
+        file = path.join(runsDir, runs[runs.length - 1], "report.json");
+      }
+      const report = JSON.parse(fs.readFileSync(file, "utf8"));
+      const result = ingestScanReport(project, report);
+      return { ok: true, report: file, ...result };
+    },
   },
   {
     name: "web_probe",
@@ -254,8 +432,18 @@ const TOOLS = [
   },
 ];
 
-const READ_ONLY = new Set(["fairy_scope_show", "har_ingest"]);
-const CLOSED_WORLD = new Set(["fairy_scope_init", "fairy_scope_show", "har_ingest"]);
+const READ_ONLY = new Set(["fairy_scope_show", "har_ingest", "fairy_ledger_show", "fairy_chain_plan"]);
+const CLOSED_WORLD = new Set([
+  "fairy_scope_init",
+  "fairy_scope_show",
+  "har_ingest",
+  "fairy_ledger_init",
+  "fairy_ledger_show",
+  "fairy_ledger_add",
+  "fairy_ledger_advance",
+  "fairy_chain_plan",
+  "fairy_ledger_ingest",
+]);
 
 function annotationsFor(name) {
   return {

@@ -1,0 +1,103 @@
+# Fairy / Web 战略:追平 ARTEX 的推进力,赢在证据纪律
+
+> 目标不是做一个更能打的攻击机器人,而是做一个**能把影响证到、且只证到该证的地方**的 web 操作员。
+
+## 1. ARTEX 到底强在哪
+
+ARTEX 是 LLM 多 agent 驱动的自主渗透系统(Go + Next.js + PostgreSQL),核心不是某个漏洞检测器,而是**把多步利用链稳定推下去**的工程:
+
+- **双图**:资产图(全局资产真值)+ 探索图(goal / intent / fact / finding / hint 的血缘链),两图用 anchor 相连,支撑覆盖度。
+- **planner / worker 分离**:planner 只产意图,worker 领一条意图执行并写回;图一变就唤醒 planner,形成事件驱动闭环。
+- **共享 todolist**:planner 跨轮保留攻击链待办,只在前置 fact 出现后才派下一步,解决"无状态会话里链会断"的问题。
+- **过程级信息交换**:worker 之间可按关键字检索彼此的执行过程,复用观察,减少重复劳动。
+- **平台配套**:MITM 流量记录、工具审批门、skills / memory / MCP、资产同步。
+
+参考:[RuoJi6/ARTEX](https://github.com/RuoJi6/ARTEX)、[AhnLab 的跟踪分析](https://www.ahnlab.com/ko/contents/content-center/36300)、[Security Affairs 报道](https://securityaffairs.com/200661/hacking/ai-driven-tool-artex-used-in-attacks-against-south-korean-banks.html)。ARTEX 被滥用打真实银行这件事本身,就是 Fairy 必须把"授权 + 非破坏 + 数据最小化"写进代码的原因。
+
+## 2. Fairy 现状 vs ARTEX
+
+| 维度 | ARTEX | Fairy 现在 | 判断 |
+|---|---|---|---|
+| 资产/事实/发现状态 | Postgres 双图 | 无状态,一次扫描一份 JSON | **最大差距**,账本已起步 |
+| 多步链推进 | planner + 共享 todolist | 单轮检测,无链 | 已有 8 条链知识库,缺执行闭环 |
+| 过程复用 | worker trace 检索 | 无 | 账本 + 报告可部分替代 |
+| 浏览器/SPA/DOM | MITM + 真实工具 | 只有原始 HTTP | 下一阶段 |
+| 认证态 / BOLA | 凭据管理 + 复测 | 只有 Cookie 属性检查 | 下一阶段 |
+| 注入类深度 | Kali/Bash 全工具 | 只做无载荷标记 | 有意为之,需"证明级"方案 |
+| 审批与人环 | 工具审批门 | scope + 限速,无交互审批 | 需补 |
+| 报告与披露 | UI + 统一报告 | HTML/MD + 审计 | 已不弱,需 CVSS/OWASP/复现 |
+| 安全与合规 | 取决于使用者 | 授权护照 + 逐请求审计 + 数据最小化 | **已领先** |
+| 可复现性 | 平台内 | `request_id` + HAR + scope 快照 | **已领先** |
+
+结论:能力面差在"状态、浏览器、认证态、注入深度";纪律面 Fairy 已经领先,不能为了追平把领先项丢掉。
+
+## 3. 差异化:Proof-Carrying Pentest(可证明渗透)
+
+每一条结论都必须携带四样东西,否则不进报告:
+
+1. **证据**:请求/响应片段 + `request_id` + 审计日志位置。
+2. **最小影响**:只在测试账号、只读一次、只拿标记数据;越权只用双账号;带外只打自己的 canary。
+3. **停止点**:证到影响成立即停,不 dump、不横向、不落地。
+4. **反证说明**:这条为什么可能是误报、还需要什么才能定级。
+
+这套约束不是枷锁,是让 Fairy 的"已证"比别人的"疑似"更值钱。
+
+## 4. 架构:四层
+
+```
+Hands   现有:scope / guard / http / crawl / checks / har / report
+Brain   账本(assets/facts/findings/intents/coverage)+ 攻击链知识库 + 计划推进
+Senses  浏览器(Playwright)/ 流量录制 / JS 与 SourceMap 分析
+Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
+```
+
+- **Brain 先做**:没有状态,多步链永远是一次性的。账本已落地(`.fairy/ledger.json`),攻击链已落地(`src/playbooks.js`)。
+- **Senses 决定上限**:SPA、DOM XSS、OAuth 流程、WebSocket 都绕不开浏览器。
+- **Discipline 决定能不能长期用**:审批门、数据分级、披露模板。
+
+## 5. 路线图与验收标准
+
+### v0.2 作战账本 + 链规划(本轮)
+- [x] `fairy_ledger_init/show/add/advance/ingest`
+- [x] 8 条 web 攻击链知识库(CORS、OAuth 重定向、XSS、Git 泄露、BOLA、SSRF、API 文档、SourceMap)
+- [x] 扫描报告一键入账,链规划区分 ready / blocked
+- [x] 16 项测试
+- 验收:扫描 → 入账 → `fairy_chain_plan` 能给出带停止点的下一步。
+
+### v0.3 认证态与 BOLA
+- [ ] 登录流程录制(单次,不爆破),会话存加密文件
+- [ ] 双账号请求差分(`web_compare`),输出 BOLA 证据
+- [ ] 角色/权限矩阵(普通用户 vs 管理员端点)
+- 验收:测试账号 A/B 能稳定复现一条水平越权,报告带双侧证据与停止说明。
+
+### v0.4 浏览器运行时
+- [ ] Playwright 渲染、XHR 录制、DOM 快照、控制台错误
+- [ ] SPA 路由与接口发现
+- [ ] DOM XSS 的最小证明(改标题,不窃取)
+- 验收:纯前端应用能拿到 XHR 端点清单与至少一条 DOM 证据。
+
+### v0.5 深度检测与披露
+- [ ] 参数级差分(SQLi/NoSQLi/SSTI/路径穿越)只判存在、不取数据
+- [ ] JWT/OAuth 配置审计
+- [ ] 报告 v2:CVSS、OWASP、复现步骤、修复建议、披露信
+- [ ] 交互审批门(高风险步骤暂停等确认)
+- 验收:每条 verified 发现都能被第三方按报告复现。
+
+## 6. 质量指标(比"扫了多少"更重要)
+
+| 指标 | 目标 |
+|---|---|
+| 越界请求 | 0 |
+| 未脱敏凭据落入报告 | 0 |
+| 发现带证据比例 | 100% |
+| verified / candidate | 逐轮上升,不虚报 |
+| 每发现平均请求数 | 越低越专业 |
+| 覆盖声明 | 只报实际测过的资产,不写"全站" |
+
+## 7. 许可与边界
+
+ARTEX 是 AGPL-3.0。本仓库**不复制其代码**,只借鉴其公开架构思想(双图、planner/worker、共享 todolist),实现独立。Fairy 不提供 RCE/横向/持久化能力,不自动利用,不碰未授权目标。
+
+---
+
+一句话:ARTEX 证明"AI 能自己走完攻击链";Fairy 要证明的是"AI 走完链之后,留下的是一份能复核、能修复、能披露的证据"。
