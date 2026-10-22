@@ -73,6 +73,7 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `web_login` | 单次登录并把会话存成命名 profile(不重试/不爆破) | 是 |
 | `web_session` | 会话管理:list/show/create/delete,不回显值 | 否 |
 | `web_compare` | 双会话差分:BOLA/IDOR/BFLA 证据骨架 | 是 |
+| `web_browser` | 无头浏览器(CDP):渲染/SPA/XHR/截图/页面动作 | 是 |
 
 所有网络工具都要求 `project`(作业目录),scope 与产物都落在那里,天然按 engagement 隔离。
 
@@ -127,6 +128,36 @@ node src/cli.js compare D:\work\lab http://127.0.0.1:8080/api/orders/2 --a bob -
 
 `web_scan` / `web_crawl` / `web_probe` / `web_report` 都接受 `--session`(MCP 里是 `session`),
 可以直接对登录后的页面/接口做只读检测。
+
+## 浏览器运行时
+
+零依赖,直接走本机 Chrome/Edge 的 CDP。用来覆盖原始 HTTP 摸不到的部分:SPA 渲染、
+JS 动态链接、XHR、DOM、控制台错误、登录后的页面。
+
+```powershell
+node src/cli.js browser D:\work\lab http://127.0.0.1:8080/spa
+node src/cli.js browser D:\work\lab http://127.0.0.1:8080/account --session alice
+node src/cli.js browser D:\work\lab http://127.0.0.1:8080/ \
+  --fill "#username=alice" --fill "#password=secret" --click "button[type=submit]"
+```
+
+MCP 里是 `web_browser`,支持 `actions`:
+
+| action | 作用 |
+|---|---|
+| `fill` | 填表单并触发 input/change |
+| `click` | 点击元素 |
+| `eval` | 在页面里执行一段 JS(返回值不回传) |
+| `wait` | 等待毫秒数 |
+
+安全边界:
+
+- **浏览器网络层套 scope**:`Document / XHR / Fetch / WebSocket` 全部逐请求校验,
+  越界直接 `BlockedByClient` 并写入审计;渲染子资源(图片/CSS/字体)放行,否则页面根本渲染不出来。
+- **登录态注入**:Cookie 走 `Network.setCookie`,Authorization 走额外请求头;值不落输出。
+- **不抓正文**:默认只给标题/文本摘要/链接/表单/XHR 元数据;截图落在
+  `.fairy/browser/<run_id>/page.png`,不进报告。
+- 每跳仍受 `max_requests` 熔断;浏览器动作在页面内执行,不能绕过网络层闸门。
 
 ## 授权护照
 
@@ -234,6 +265,7 @@ src/
   scan.js        编排、去重、统计
   har.js         HAR 导入 / 脱敏导出
   auth.js        单次登录 + 双会话差分
+  browser.js     CDP 无头浏览器(SPA/XHR/截图/动作)
   session.js     会话保管(加密/0600/不回显)
   ledger.js      作战账本:资产/事实/发现/意图/覆盖
   playbooks.js   web 攻击链知识库与匹配
@@ -250,7 +282,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.2 作战账本(资产/事实/发现/意图/覆盖)+ 8 条攻击链知识库
 - [x] v0.3 认证态:单次登录 + 加密会话 + 双账号 BOLA 证据差分
 - [ ] v0.3 角色/权限矩阵:普通用户 vs 管理员端点
-- [ ] v0.4 浏览器运行时(Playwright):SPA/XHR/DOM/控制台
+- [x] v0.4 浏览器运行时(CDP 零依赖):SPA/XHR/DOM/控制台/截图/页面动作
 - [ ] v0.4 HAR 重放:把 Burp 请求按 scope 重放并做差分
 - [ ] v0.5 参数级差分:SQLi/NoSQLi/SSTI/路径穿越,只判存在
 - [ ] v0.5 报告 v2:CVSS/OWASP/复现步骤/修复建议/披露信

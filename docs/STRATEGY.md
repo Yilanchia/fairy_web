@@ -70,11 +70,13 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] 角色/权限矩阵(普通用户 vs 管理员端点的自动化对照)
 - 验收:靶场已复现 `marker-in-both` + `marker-only-in-a` 两种判读,证据带双侧 `request_id`。
 
-### v0.4 浏览器运行时
-- [ ] Playwright 渲染、XHR 录制、DOM 快照、控制台错误
-- [ ] SPA 路由与接口发现
-- [ ] DOM XSS 的最小证明(改标题,不窃取)
-- 验收:纯前端应用能拿到 XHR 端点清单与至少一条 DOM 证据。
+### v0.4 浏览器运行时(本轮完成)
+- [x] CDP 无头浏览器(零依赖):渲染、XHR 录制、DOM 快照、控制台错误、截图
+- [x] SPA 动态链接与 XHR 接口发现
+- [x] 登录态注入 + 浏览器网络层 scope 闸门(越界 fetch 直接阻断)
+- [x] 页面动作 `fill/click/eval/wait`,可跑登录流与最小证明
+- [ ] DOM XSS 的专用判定(目前靠 `actions` + 人工确认)
+- 验收:纯前端页面拿到 `SPA Ready` 标题、动态链接、XHR 与截图;越界 fetch 被阻断并记审计。
 
 ### v0.5 深度检测与披露
 - [ ] 参数级差分(SQLi/NoSQLi/SSTI/路径穿越)只判存在、不取数据

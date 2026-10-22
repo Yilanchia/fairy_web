@@ -57,8 +57,8 @@ export const PLAYBOOKS = [
       },
     ],
     steps: [
-      { action: "浏览器打开反射 URL,确认标记落在 HTML 文本、属性还是脚本上下文。", proof: "上下文截图/片段", risk: "low", approval: false, requests: 1 },
-      { action: "若在可执行上下文,用测试账号构造最小无害证明(仅改 document.title 为 fairy-proof),不读取 cookie。", proof: "标题变化", risk: "medium", approval: true, requests: 1 },
+      { action: "用 web_browser 打开反射 URL,看 DOM 里标记落在文本、属性还是脚本上下文(拿截图/文本)。", proof: "上下文截图/片段", risk: "low", approval: false, requests: 1 },
+      { action: "若在可执行上下文,用 web_browser 的 eval 动作构造最小无害证明(仅改 document.title 为 fairy-proof),不读取 cookie。", proof: "标题变化", risk: "medium", approval: true, requests: 1 },
       { action: "评估会话 Cookie 是否可被脚本读取;只记录属性,不实际外传。", proof: "Cookie 属性对照", risk: "low", approval: false, requests: 0 },
     ],
     stop: "证明脚本可执行即停。不窃取 Cookie、不发起请求、不落地后门。",

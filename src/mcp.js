@@ -8,6 +8,7 @@ import { ingestHar } from "./har.js";
 import { executeScan, scan } from "./scan.js";
 import { writeReport } from "./report.js";
 import { login, compare } from "./auth.js";
+import { browse } from "./browser.js";
 import {
   loadSession,
   saveSession,
@@ -426,6 +427,56 @@ const TOOLS = [
           aHeaders: withSession(project, args.session_a, args.headers || {}),
           bHeaders: withSession(project, args.session_b, args.headers || {}),
           include_snippet: args.include_snippet === true,
+        });
+      } finally {
+        guard.close();
+      }
+    },
+  },
+  {
+    name: "web_browser",
+    description:
+      "真实无头浏览器(本机 Chrome/Edge,CDP 零依赖):渲染 JS/SPA,采集标题/正文/链接/表单/XHR/控制台错误/截图。Document/XHR/Fetch/WebSocket 在浏览器网络层过 scope,越界请求直接阻断并记录;渲染子资源放行。可带 session 注入登录态,actions 支持 fill/click/eval/wait。默认不抓响应正文。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "url"],
+      properties: {
+        project: { type: "string" },
+        url: { type: "string" },
+        session: { type: "string", description: "可选:已保存的会话名,注入 Cookie/Authorization。" },
+        actions: {
+          type: "array",
+          description: "页面动作序列:fill/click/wait/eval。",
+          items: {
+            type: "object",
+            required: ["type"],
+            properties: {
+              type: { type: "string", enum: ["fill", "click", "wait", "eval"] },
+              selector: { type: "string" },
+              value: { type: "string" },
+              expression: { type: "string" },
+              ms: { type: "number" },
+            },
+          },
+        },
+        wait_ms: { type: "number", description: "load 后额外等待毫秒,默认 800。" },
+        timeout_ms: { type: "number", description: "页面加载超时,默认 20000。" },
+        screenshot: { type: "boolean", description: "是否截图,默认 true(只落本地 .fairy/browser)。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const guard = new Guard(project);
+      try {
+        const session = args.session ? loadSession(project, args.session) : null;
+        return await browse(guard, {
+          url: args.url,
+          session: args.session || null,
+          sessionHeaders: session ? session.headers : null,
+          actions: Array.isArray(args.actions) ? args.actions : [],
+          waitMs: args.wait_ms,
+          timeoutMs: args.timeout_ms,
+          screenshot: args.screenshot !== false,
         });
       } finally {
         guard.close();

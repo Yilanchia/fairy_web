@@ -225,6 +225,45 @@ export class Guard {
     throw new GuardError("重定向处理异常", "REDIRECT_LOOP");
   }
 
+  // 浏览器运行时用:只校验、不发请求;真正的请求由 CDP 发出,但一样过审计。
+  async authorize(rawUrl) {
+    return this._check(rawUrl);
+  }
+
+  async registerBrowserRequest(url, meta = {}) {
+    await this._throttle();
+    this.count += 1;
+    if (this.count > this.scope.limits.max_requests) {
+      throw new GuardError(`请求数超过 scope 上限 ${this.scope.limits.max_requests},已停止(防止失控扫描)`, "REQUEST_LIMIT");
+    }
+    this._audit({
+      kind: "browser",
+      ts: nowIso(),
+      run_id: this.runId,
+      req_id: `B${String(this.count).padStart(4, "0")}`,
+      method: meta.method || "GET",
+      url: redactUrl(url),
+      resource_type: meta.resourceType || null,
+      allowed: true,
+    });
+    return this.count;
+  }
+
+  blockBrowserRequest(url, error, meta = {}) {
+    this.blocked += 1;
+    this._audit({
+      kind: "browser",
+      ts: nowIso(),
+      run_id: this.runId,
+      method: meta.method || "GET",
+      url: redactUrl(url),
+      resource_type: meta.resourceType || null,
+      allowed: false,
+      reason: error?.message || String(error),
+      code: error?.code || null,
+    });
+  }
+
   async _check(rawUrl) {
     let target;
     try {

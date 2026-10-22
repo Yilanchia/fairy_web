@@ -7,6 +7,7 @@ import { ingestHar } from "./har.js";
 import { executeScan, scan } from "./scan.js";
 import { writeReport } from "./report.js";
 import { login, compare } from "./auth.js";
+import { browse } from "./browser.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
 
@@ -19,6 +20,7 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js crawl  <project> <url> [--pages 40] [--depth 2]
   node src/cli.js scan   <project> <url...> [--crawl] [--pages 40] [--depth 2] [--session alice]
   node src/cli.js report <project> <url...> [--crawl] [--pages 40] [--session alice]
+  node src/cli.js browser <project> <url> [--session alice] [--screenshot false] [--eval "..."] [--click "sel"] [--fill "sel=value"]
   node src/cli.js login  <project> <url> --session alice --data "username=alice&password=..."
   node src/cli.js session <project> list|show|delete|create [name] [--header "Cookie: ..."]
   node src/cli.js compare <project> <url> --a alice --b bob [--marker "ALICE-ORDER-1"]
@@ -217,6 +219,36 @@ try {
       findings: result.findings.map((f) => ({ id: f.id, severity: f.severity, title: f.title, where: f.where })),
       files,
     });
+  } else if (command === "browser") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const url = args._[1];
+    if (!url) throw new Error("browser 需要 URL");
+    const actions = [];
+    if (args.eval) actions.push({ type: "eval", expression: String(args.eval) });
+    if (args.click) actions.push({ type: "click", selector: String(args.click) });
+    if (args.fill) {
+      const text = String(args.fill);
+      const at = text.indexOf("=");
+      if (at <= 0) throw new Error('--fill 需要 "selector=value" 形式');
+      actions.push({ type: "fill", selector: text.slice(0, at), value: text.slice(at + 1) });
+    }
+    if (args.wait) actions.push({ type: "wait", ms: Number(args.wait) });
+    const guard = new Guard(project);
+    try {
+      const session = args.session ? loadSession(project, args.session) : null;
+      print(
+        await browse(guard, {
+          url,
+          session: args.session || null,
+          sessionHeaders: session ? session.headers : null,
+          actions,
+          waitMs: args["wait-ms"],
+          screenshot: boolOption(args.screenshot, true),
+        }),
+      );
+    } finally {
+      guard.close();
+    }
   } else if (command === "login") {
     const project = path.resolve(args._[0] || process.cwd());
     const url = args._[1];
