@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createContext, addFinding } from "./checks.js";
 import { headerAll, headerGet, redactUrl, severityRank, truncate } from "./util.js";
+import { enrichFindings } from "./taxonomy.js";
 
 const SECURITY_HEADERS = [
   ["content-security-policy", "CSP"],
@@ -190,6 +191,7 @@ export function ingestHar(file) {
   ctx.findings.forEach((finding, index) => {
     finding.id = `H-${String(index + 1).padStart(3, "0")}`;
   });
+  enrichFindings(ctx.findings);
 
   const bySeverity = { critical: 0, high: 0, medium: 0, low: 0, info: 0 };
   for (const finding of ctx.findings) bySeverity[finding.severity] = (bySeverity[finding.severity] || 0) + 1;

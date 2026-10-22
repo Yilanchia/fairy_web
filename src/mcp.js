@@ -9,6 +9,7 @@ import { executeScan, scan } from "./scan.js";
 import { writeReport } from "./report.js";
 import { login, compare } from "./auth.js";
 import { browse } from "./browser.js";
+import { replayHar } from "./replay.js";
 import {
   loadSession,
   saveSession,
@@ -427,6 +428,41 @@ const TOOLS = [
           aHeaders: withSession(project, args.session_a, args.headers || {}),
           bHeaders: withSession(project, args.session_b, args.headers || {}),
           include_snippet: args.include_snippet === true,
+        });
+      } finally {
+        guard.close();
+      }
+    },
+  },
+  {
+    name: "web_replay",
+    description:
+      "把 HAR 里的请求按 scope 重放,做当时 vs 现在的状态/长度差分。默认只放 GET/HEAD;写方法需 scope 授权且 allow_write=true。HAR 里的 Cookie/Authorization 不沿用,认证态用 session 现取;不回传正文。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "path"],
+      properties: {
+        project: { type: "string" },
+        path: { type: "string", description: "本地 HAR 文件。" },
+        session: { type: "string", description: "可选:用已保存会话重放。" },
+        headers: HEADER_SCHEMA,
+        max_entries: { type: "number", description: "最多重放多少条,默认 50,上限 500。" },
+        allow_write: { type: "boolean", description: "允许重放 POST/PUT 等写方法(仍需 scope 授权)。默认 false。" },
+        replace: { type: "object", additionalProperties: { type: "string" }, description: "重放前替换 URL/body 里的字符串,如 {\"OLD_ID\":\"NEW_ID\"}。" },
+        hosts: { type: "array", items: { type: "string" }, description: "只重放这些 host(可选;scope 仍强制)。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const guard = new Guard(project);
+      try {
+        return await replayHar(guard, {
+          file: args.path,
+          headers: withSession(project, args.session, args.headers || {}),
+          maxEntries: args.max_entries,
+          allowWrite: args.allow_write === true,
+          replace: args.replace || {},
+          hosts: args.hosts || [],
         });
       } finally {
         guard.close();

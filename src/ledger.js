@@ -329,6 +329,10 @@ export function ingestScanReport(projectDir, report) {
         severity: finding.severity,
         where: finding.where,
         detail: finding.detail,
+        impact: finding.impact,
+        remediation: finding.remediation,
+        owasp: finding.owasp,
+        cvss: finding.cvss,
         status: "candidate",
         evidence: [
           {

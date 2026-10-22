@@ -10,6 +10,7 @@ import {
 } from "./checks.js";
 import { scopeSummary } from "./scope.js";
 import { nowIso, redactHeaders, severityRank } from "./util.js";
+import { enrichFindings } from "./taxonomy.js";
 
 function serializePage(page) {
   return {
@@ -99,6 +100,7 @@ export async function executeScan(projectDir, options = {}) {
     ctx.findings.forEach((finding, index) => {
       finding.id = `F-${String(index + 1).padStart(3, "0")}`;
     });
+    enrichFindings(ctx.findings);
 
     const result = {
       schema: "FairyScan/v1",

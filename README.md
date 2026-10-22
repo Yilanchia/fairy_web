@@ -74,6 +74,7 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `web_session` | 会话管理:list/show/create/delete,不回显值 | 否 |
 | `web_compare` | 双会话差分:BOLA/IDOR/BFLA 证据骨架 | 是 |
 | `web_browser` | 无头浏览器(CDP):渲染/SPA/XHR/截图/页面动作 | 是 |
+| `web_replay` | 按 scope 重放 HAR,做状态/长度差分 | 是 |
 
 所有网络工具都要求 `project`(作业目录),scope 与产物都落在那里,天然按 engagement 隔离。
 
@@ -158,6 +159,27 @@ MCP 里是 `web_browser`,支持 `actions`:
 - **不抓正文**:默认只给标题/文本摘要/链接/表单/XHR 元数据;截图落在
   `.fairy/browser/<run_id>/page.png`,不进报告。
 - 每跳仍受 `max_requests` 熔断;浏览器动作在页面内执行,不能绕过网络层闸门。
+
+## 报告与交付
+
+每条发现都带:**OWASP 分类、CWE、CVSS 估计、修复建议、复现步骤、`request_id`**。
+`report.html` 是自包含的,可以直接发给同事;`report.md` 进工单;`traffic.har`
+脱敏后交给 Verdex 做第二遍静态复核。
+
+HAR 重放用来回答"当时是这样,现在还是吗":
+
+```powershell
+node src/cli.js replay D:\work\lab capture.har --max 50
+node src/cli.js replay D:\work\lab capture.har --allow-write --session alice --replace "OLD_ID=NEW_ID"
+```
+
+- 默认只放 `GET/HEAD`;写方法要 scope 授权 + `--allow-write`。
+- 不沿用 HAR 里的 Cookie/Authorization,认证态用 `--session` 现取。
+- 只回状态/长度/哈希,不回正文;越界请求直接跳过并计数。
+
+> CVSS 是估计值,用于排序与沟通;定级前需要人工校准。**候选不等于已验证。**
+
+![报告示例](docs/report-v2.png)
 
 ## 授权护照
 
@@ -266,6 +288,8 @@ src/
   har.js         HAR 导入 / 脱敏导出
   auth.js        单次登录 + 双会话差分
   browser.js     CDP 无头浏览器(SPA/XHR/截图/动作)
+  replay.js      HAR 按 scope 重放与差分
+  taxonomy.js    OWASP/CWE/CVSS/修复/复现归类
   session.js     会话保管(加密/0600/不回显)
   ledger.js      作战账本:资产/事实/发现/意图/覆盖
   playbooks.js   web 攻击链知识库与匹配
@@ -283,9 +307,11 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.3 认证态:单次登录 + 加密会话 + 双账号 BOLA 证据差分
 - [ ] v0.3 角色/权限矩阵:普通用户 vs 管理员端点
 - [x] v0.4 浏览器运行时(CDP 零依赖):SPA/XHR/DOM/控制台/截图/页面动作
-- [ ] v0.4 HAR 重放:把 Burp 请求按 scope 重放并做差分
+- [x] v0.4 HAR 重放:按 scope 重放并做状态/长度差分
+- [x] v0.5 报告 v2:OWASP/CWE/CVSS 估计/复现步骤/修复建议
 - [ ] v0.5 参数级差分:SQLi/NoSQLi/SSTI/路径穿越,只判存在
-- [ ] v0.5 报告 v2:CVSS/OWASP/复现步骤/修复建议/披露信
+- [ ] v0.5 DOM XSS 专用判定(目前靠浏览器动作 + 人工)
+- [ ] v0.5 披露信模板
 - [ ] 交互审批门:高风险步骤暂停等确认
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

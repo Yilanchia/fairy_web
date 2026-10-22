@@ -8,6 +8,7 @@ import { executeScan, scan } from "./scan.js";
 import { writeReport } from "./report.js";
 import { login, compare } from "./auth.js";
 import { browse } from "./browser.js";
+import { replayHar } from "./replay.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
 
@@ -24,6 +25,7 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js login  <project> <url> --session alice --data "username=alice&password=..."
   node src/cli.js session <project> list|show|delete|create [name] [--header "Cookie: ..."]
   node src/cli.js compare <project> <url> --a alice --b bob [--marker "ALICE-ORDER-1"]
+  node src/cli.js replay <project> <file.har> [--max 50] [--allow-write] [--session alice] [--replace "OLD=NEW"]
   node src/cli.js har    <project> <file.har>
   node src/cli.js mcp    [--project <dir>]
 
@@ -299,6 +301,30 @@ try {
           aHeaders: sessionHeaders(project, args.a, baseHeaders),
           bHeaders: sessionHeaders(project, args.b, baseHeaders),
           include_snippet: boolOption(args["include-snippet"], false),
+        }),
+      );
+    } finally {
+      guard.close();
+    }
+  } else if (command === "replay") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const file = args._[1];
+    if (!file) throw new Error("replay 需要 HAR 文件路径");
+    const replace = {};
+    for (const pair of String(args.replace || "").split(",").filter(Boolean)) {
+      const at = pair.indexOf("=");
+      if (at > 0) replace[pair.slice(0, at)] = pair.slice(at + 1);
+    }
+    const guard = new Guard(project);
+    try {
+      print(
+        await replayHar(guard, {
+          file,
+          headers: sessionHeaders(project, args.session, headersOf(args)),
+          maxEntries: args.max,
+          allowWrite: boolOption(args["allow-write"], false),
+          replace,
+          hosts: args.hosts ? String(args.hosts).split(",") : [],
         }),
       );
     } finally {
