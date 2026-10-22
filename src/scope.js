@@ -17,6 +17,7 @@ export const DEFAULT_LIMITS = {
   max_active_pages: 15,
   verify_tls: true,
   allow_private: false,
+  allow_active_probes: false,
   methods: ["GET", "HEAD", "OPTIONS"],
 };
 
@@ -155,6 +156,7 @@ export function normalizeScope(raw) {
       inputLimits.allow_private === undefined
         ? normalizedInclude.some(isPrivatePattern)
         : inputLimits.allow_private === true,
+    allow_active_probes: inputLimits.allow_active_probes === true,
     methods: DEFAULT_LIMITS.methods.slice(),
   };
 

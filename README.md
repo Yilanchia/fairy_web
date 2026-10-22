@@ -76,6 +76,9 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `web_browser` | 无头浏览器(CDP):渲染/SPA/XHR/截图/页面动作 | 是 |
 | `web_replay` | 按 scope 重放 HAR,做状态/长度差分 | 是 |
 | `fairy_handoff` | 样本登记 + Verdex 链 + 本机后端预检 | 下载时是 |
+| `web_param` | 参数级探测:SQLi 错误/布尔、SSTI(需双重授权) | 是 |
+| `web_dom_context` | DOM 反射上下文判定(script/属性/文本) | 是 |
+| `fairy_disclose` | 从账本生成披露文档(只取 verified) | 否 |
 
 所有网络工具都要求 `project`(作业目录),scope 与产物都落在那里,天然按 engagement 隔离。
 
@@ -161,6 +164,22 @@ MCP 里是 `web_browser`,支持 `actions`:
   `.fairy/browser/<run_id>/page.png`,不进报告。
 - 每跳仍受 `max_requests` 熔断;浏览器动作在页面内执行,不能绕过网络层闸门。
 
+## 参数级与 DOM 判定
+
+这两类检测默认是**关着的**,要两道授权:scope 里 `allow_active_probes: true`,调用时
+`confirm: true`。
+
+```powershell
+node src/cli.js init D:\work\lab --include "127.0.0.1" --basis "自建靶场" --allow-active-probes true
+node src/cli.js param D:\work\lab "http://127.0.0.1:8080/item?id=1" --confirm --classes sqli,ssti
+node src/cli.js dom   D:\work\lab "http://127.0.0.1:8080/search?q=x" --param q
+```
+
+- **SQLi**:单引号错误签名、`' AND '1'='1` / `'2` 布尔差分。只判存在,不 UNION、不堆叠、不时间盲注、不取数据。
+- **SSTI**:`{{7*7}}` 是否被求值为 `49`;表达式原样回显不算。
+- **DOM 上下文**:构造 `fairy<hex>` 标记,用浏览器看它落在 `<script>`、事件属性、普通属性、文本还是注释,顺带读 CSP。只判定,不生成载荷。
+- 每类证到即停;发现带 `request_id`,布尔差分注明可能被动态页面干扰。
+
 ## 报告与交付
 
 每条发现都带:**OWASP 分类、CWE、CVSS 估计、修复建议、复现步骤、`request_id`**。
@@ -222,6 +241,7 @@ node src/cli.js handoff D:\work\lab https://target.example/downloads/app.apk --c
     "max_active_pages": 15,
     "timeout_ms": 10000,
     "allow_private": true,
+    "allow_active_probes": false,
     "verify_tls": true,
     "methods": ["GET", "HEAD", "OPTIONS"]
   }
@@ -314,6 +334,9 @@ src/
   taxonomy.js    OWASP/CWE/CVSS/修复/复现归类
   artifacts.js   样本类型识别 + Verdex 链/后端预检
   handoff.js     样本登记、下载、交接给 Verdex
+  probe.js       参数级探测(SQLi/SSTI,只判存在)
+  domxss.js      DOM 反射上下文判定
+  disclosure.js  披露文档生成
   session.js     会话保管(加密/0600/不回显)
   ledger.js      作战账本:资产/事实/发现/意图/覆盖
   playbooks.js   web 攻击链知识库与匹配
@@ -333,9 +356,10 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.4 浏览器运行时(CDP 零依赖):SPA/XHR/DOM/控制台/截图/页面动作
 - [x] v0.4 HAR 重放:按 scope 重放并做状态/长度差分
 - [x] v0.5 报告 v2:OWASP/CWE/CVSS 估计/复现步骤/修复建议
-- [ ] v0.5 参数级差分:SQLi/NoSQLi/SSTI/路径穿越,只判存在
-- [ ] v0.5 DOM XSS 专用判定(目前靠浏览器动作 + 人工)
-- [ ] v0.5 披露信模板
+- [x] v0.5 参数级差分:SQLi(错误/布尔)、SSTI,只判存在
+- [x] v0.5 DOM 上下文判定:script/属性/文本/注释 + CSP
+- [x] v0.5 披露文档:只取 verified,不带证据正文
+- [ ] v0.5 交互审批门(高风险步骤暂停等确认)
 - [x] v0.6 样本交接:artifact 发现/下载/登记 + Verdex 链 + 后端预检
 - [ ] 交互审批门:高风险步骤暂停等确认
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"

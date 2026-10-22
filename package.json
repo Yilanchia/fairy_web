@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Fairy Web — authorized web pentest hands for the Fairy / Verdex toolkit",
   "scripts": {
-    "test": "node --test \"tests/*.test.mjs\"",
+    "test": "node --test --test-concurrency=1 \"tests/*.test.mjs\"",
     "scan": "node src/cli.js",
     "mcp": "node src/cli.js mcp"
   },

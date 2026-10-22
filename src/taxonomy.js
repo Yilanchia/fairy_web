@@ -26,6 +26,18 @@ const TAXONOMY = {
     base: 6.1,
     remediation: "按输出上下文转义;启用 CSP;避免 innerHTML 拼接。",
   },
+  sqli: {
+    owasp: "A03:2021 Injection",
+    cwe: "CWE-89",
+    base: 8.1,
+    remediation: "使用参数化查询/预编译语句;统一数据库错误页;数据库账号最小权限。",
+  },
+  ssti: {
+    owasp: "A03:2021 Injection",
+    cwe: "CWE-94",
+    base: 8.1,
+    remediation: "不要把用户输入拼进模板;使用沙箱/白名单;升级模板引擎并关闭危险函数。",
+  },
   cookie: {
     owasp: "A05:2021 Security Misconfiguration",
     cwe: "CWE-1004 / CWE-614",

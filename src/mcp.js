@@ -11,6 +11,9 @@ import { login, compare } from "./auth.js";
 import { browse } from "./browser.js";
 import { replayHar } from "./replay.js";
 import { handoffFile, fetchArtifact, suggestUrl } from "./handoff.js";
+import { runParamProbes } from "./probe.js";
+import { inspectDomContext } from "./domxss.js";
+import { writeDisclosure } from "./disclosure.js";
 import {
   loadSession,
   saveSession,
@@ -51,6 +54,7 @@ const LIMITS_SCHEMA = {
     max_pages: { type: "number" },
     max_active_pages: { type: "number" },
     allow_private: { type: "boolean" },
+    allow_active_probes: { type: "boolean" },
     verify_tls: { type: "boolean" },
     methods: { type: "array", items: { type: "string" } },
   },
@@ -228,6 +232,25 @@ const TOOLS = [
         throw new Error(`未知 action:${action}`);
       });
       return { ok: true, action, result, summary: ledgerSummary(loadLedger(project)) };
+    },
+  },
+  {
+    name: "fairy_disclose",
+    description:
+      "从作战账本生成披露文档(.fairy/disclosure.md):默认只取 status=verified 的发现,带 OWASP/CWE/CVSS/复现/修复,不带请求响应正文。",
+    inputSchema: {
+      type: "object",
+      required: ["project"],
+      properties: {
+        project: { type: "string" },
+        include_candidates: { type: "boolean", description: "是否把 candidate 也写进去;默认 false。" },
+      },
+    },
+    run: async (args) => {
+      const result = writeDisclosure(projectOf(args), {
+        includeCandidates: args.include_candidates === true,
+      });
+      return { ok: true, file: result.file, stats: result.stats, markdown: result.markdown };
     },
   },
   {
@@ -469,6 +492,73 @@ const TOOLS = [
     },
   },
   {
+    name: "web_dom_context",
+    description:
+      "DOM 反射上下文判定:构造 fairy<hex> 标记,用无头浏览器看它落在 script / 事件属性 / 普通属性 / 文本 / 注释,并读 CSP。只判定,不生成 XSS 载荷、不执行证明。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "url", "param"],
+      properties: {
+        project: { type: "string" },
+        url: { type: "string", description: "含该查询参数的页面 URL。" },
+        param: { type: "string", description: "要判定上下文的查询参数名。" },
+        session: { type: "string" },
+        wait_ms: { type: "number" },
+        screenshot: { type: "boolean" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const guard = new Guard(project);
+      try {
+        const session = args.session ? loadSession(project, args.session) : null;
+        return await inspectDomContext(guard, {
+          url: args.url,
+          param: args.param,
+          session: args.session || null,
+          sessionHeaders: session ? session.headers : null,
+          waitMs: args.wait_ms,
+          screenshot: args.screenshot === true,
+        });
+      } finally {
+        guard.close();
+      }
+    },
+  },
+  {
+    name: "web_param",
+    description:
+      "参数级主动探测(只判存在):SQL 错误签名/布尔差分、SSTI {{7*7}} 求值。必须 scope.limits.allow_active_probes=true 且 confirm=true。不做 UNION、堆叠、时间盲注、数据提取;每类证到即停。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "urls", "confirm"],
+      properties: {
+        project: { type: "string" },
+        urls: { type: "array", items: { type: "string" } },
+        confirm: { type: "boolean", description: "必须 true:会向目标发少量探测请求。" },
+        classes: { type: "array", items: { type: "string", enum: ["sqli", "ssti"] } },
+        session: { type: "string" },
+        headers: HEADER_SCHEMA,
+        max_params: { type: "number", description: "每个 URL 最多测多少参数,默认 20。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const guard = new Guard(project);
+      try {
+        return await runParamProbes(guard, {
+          urls: args.urls,
+          confirm: args.confirm === true,
+          classes: args.classes,
+          headers: withSession(project, args.session, args.headers || {}),
+          maxParams: args.max_params,
+        });
+      } finally {
+        guard.close();
+      }
+    },
+  },
+  {
     name: "web_replay",
     description:
       "把 HAR 里的请求按 scope 重放,做当时 vs 现在的状态/长度差分。默认只放 GET/HEAD;写方法需 scope 授权且 allow_write=true。HAR 里的 Cookie/Authorization 不沿用,认证态用 session 现取;不回传正文。",
@@ -696,6 +786,7 @@ const CLOSED_WORLD = new Set([
   "fairy_chain_plan",
   "fairy_ledger_ingest",
   "web_session",
+  "fairy_disclose",
 ]);
 
 function annotationsFor(name) {

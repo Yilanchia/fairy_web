@@ -95,6 +95,14 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [x] `binary-artifact` 链并入作战账本,下一步进 `fairy_chain_plan`
 - 验收:真实 PE → `pe` 链;实调 `mcp__verdex__analyze_target` 得 `pe`;`pwn_checksec`/`bin_strings` 可用;`bin_info` 缺 `file` 被预检标红并给出警告。
 
+### v0.7 参数级与 DOM(本轮)
+- [x] SQLi 错误签名 / 布尔差分、SSTI `{{7*7}}`,只判存在
+- [x] 双重授权:scope `allow_active_probes=true` + 调用 `confirm=true`
+- [x] DOM 上下文判定(script/事件属性/普通属性/文本/注释)+ CSP 读取
+- [x] 披露文档:只取 verified、不带证据正文
+- [ ] 交互审批门(高风险步骤暂停等确认)
+- 验收:靶场命中错误型 SQLi、布尔差分、SSTI 各一条;正常反射参数零误报;DOM 命中 script 与 text 两种上下文。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |

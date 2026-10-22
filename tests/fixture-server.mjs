@@ -144,6 +144,55 @@ export function startLab() {
       </body></html>`);
       return;
     }
+    if (path === "/sqli") {
+      const q = url.searchParams.get("q") || "";
+      if (q.includes("'")) {
+        res.writeHead(500, { "content-type": "text/html" });
+        res.end("<html><body>You have an error in your SQL syntax near '1'' at line 1</body></html>");
+        return;
+      }
+      html("Rows", `<div>id=1 alice q=${q}</div>`);
+      return;
+    }
+    if (path === "/boolean") {
+      const q = url.searchParams.get("q") || "";
+      if (q.includes("' AND '1'='2")) {
+        html("Rows", "<div>no rows</div>");
+        return;
+      }
+      html("Rows", "<div>id=1 alice id=2 bob id=3 carol</div>");
+      return;
+    }
+    if (path === "/ssti") {
+      const q = url.searchParams.get("q") || "";
+      if (q.includes("{{7*7}}")) {
+        html("Template", "<div>result: 49</div>");
+        return;
+      }
+      html("Template", "<div>hello</div>");
+      return;
+    }
+    if (path === "/dom") {
+      const q = url.searchParams.get("q") || "";
+      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      res.end(`<!doctype html><html><head><title>DOM</title></head><body>
+        <div id="out"></div>
+        <script>var userInput = ${JSON.stringify(q)}; window.__value = userInput;</script>
+      </body></html>`);
+      return;
+    }
+    if (path === "/dom-text") {
+      html("DOM Text", `<div>${url.searchParams.get("q") || ""}</div>`);
+      return;
+    }
+    if (path === "/dom-attr") {
+      html("DOM Attr", `<div data-x="${url.searchParams.get("q") || ""}">x</div>`);
+      return;
+    }
+    if (path === "/safe") {
+      html("Safe", `<div>${url.searchParams.get("q") || ""}</div>`);
+      return;
+    }
     if (path === "/downloads/app.apk") {
       const body = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(64, 0x41)]);
       res.writeHead(200, {

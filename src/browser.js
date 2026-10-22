@@ -211,7 +211,8 @@ async function launch(projectDir) {
     userDataDir,
     close: async () => {
       try {
-        await conn.send("Browser.close");
+        // Browser.close 在异常连接上可能永远不回;硬超时后直接杀进程。
+        await Promise.race([conn.send("Browser.close"), delay(3000)]);
       } catch {
         // 已经关了就算了。
       }
@@ -305,6 +306,7 @@ export async function browse(guard, options = {}) {
     if (!entry) return;
     entry.status = params.response.status;
     entry.mime = params.response.mimeType;
+    entry.headers = params.response.headers || null;
   });
   conn.on("Network.loadingFailed", (params) => {
     const entry = network.get(params.requestId);
@@ -367,6 +369,11 @@ export async function browse(guard, options = {}) {
       }
     }
 
+    let capture = null;
+    if (options.captureExpression) {
+      capture = await evaluate(conn, sessionId, String(options.captureExpression));
+    }
+
     const snapshot = await evaluate(
       conn,
       sessionId,
@@ -425,6 +432,8 @@ export async function browse(guard, options = {}) {
       xhr,
       console_errors: consoleErrors.slice(0, 50),
       blocked: blocked.slice(0, 50),
+      capture,
+      response_headers: main ? main.headers : null,
       counts: {
         network: network.size,
         gated: gatedCount,

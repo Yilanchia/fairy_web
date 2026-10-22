@@ -10,6 +10,9 @@ import { login, compare } from "./auth.js";
 import { browse } from "./browser.js";
 import { replayHar } from "./replay.js";
 import { handoffFile, fetchArtifact } from "./handoff.js";
+import { runParamProbes } from "./probe.js";
+import { inspectDomContext } from "./domxss.js";
+import { writeDisclosure } from "./disclosure.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
 
@@ -26,6 +29,9 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js login  <project> <url> --session alice --data "username=alice&password=..."
   node src/cli.js session <project> list|show|delete|create [name] [--header "Cookie: ..."]
   node src/cli.js compare <project> <url> --a alice --b bob [--marker "ALICE-ORDER-1"]
+  node src/cli.js dom    <project> <url> --param q [--session alice]
+  node src/cli.js param  <project> <url...> --confirm [--classes sqli,ssti] [--max-params 20] [--session alice]
+  node src/cli.js disclose <project> [--include-candidates]
   node src/cli.js handoff <project> <path|url> [--confirm] [--max-bytes 20000000]
   node src/cli.js replay <project> <file.har> [--max 50] [--allow-write] [--session alice] [--replace "OLD=NEW"]
   node src/cli.js har    <project> <file.har>
@@ -108,6 +114,9 @@ try {
     if (args.pages !== undefined) limits.max_pages = Number(args.pages);
     if (args.methods !== undefined) limits.methods = String(args.methods).split(",").map((s) => s.trim());
     if (args["allow-private"] !== undefined) limits.allow_private = boolOption(args["allow-private"]);
+    if (args["allow-active-probes"] !== undefined) {
+      limits.allow_active_probes = boolOption(args["allow-active-probes"]);
+    }
     const saved = saveScope(project, {
       schema: "FairyScope/v1",
       authorization: {
@@ -308,6 +317,50 @@ try {
     } finally {
       guard.close();
     }
+  } else if (command === "dom") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const url = args._[1];
+    if (!url || !args.param) throw new Error('dom 需要 URL 与 --param <参数名>');
+    const guard = new Guard(project);
+    try {
+      const session = args.session ? loadSession(project, args.session) : null;
+      print(
+        await inspectDomContext(guard, {
+          url,
+          param: args.param,
+          session: args.session || null,
+          sessionHeaders: session ? session.headers : null,
+          waitMs: args["wait-ms"],
+          screenshot: boolOption(args.screenshot, false),
+        }),
+      );
+    } finally {
+      guard.close();
+    }
+  } else if (command === "param") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const urls = args._.slice(1);
+    if (!urls.length) throw new Error("param 需要至少一个 URL");
+    const guard = new Guard(project);
+    try {
+      print(
+        await runParamProbes(guard, {
+          urls,
+          confirm: boolOption(args.confirm, false),
+          classes: args.classes ? String(args.classes).split(",") : undefined,
+          headers: sessionHeaders(project, args.session, headersOf(args)),
+          maxParams: args["max-params"],
+        }),
+      );
+    } finally {
+      guard.close();
+    }
+  } else if (command === "disclose") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const out = writeDisclosure(project, {
+      includeCandidates: boolOption(args["include-candidates"], false),
+    });
+    print({ ok: true, file: out.file, stats: out.stats });
   } else if (command === "handoff") {
     const project = path.resolve(args._[0] || process.cwd());
     const target = args._[1];

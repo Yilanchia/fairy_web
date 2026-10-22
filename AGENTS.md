@@ -11,6 +11,9 @@
   `mcp__verdex__analyze_target`,按 `preflight` 跳过缺失后端的步骤。
 - **web 上发现的样本链接**:`web_scan` 会列进 `attack_surface.artifacts`;
   下载走 `fairy_handoff(url, confirm=true)`,不要用普通爬虫硬拉。
+- **参数级探测**:`web_param`(SQLi/SSTI),必须 scope `allow_active_probes=true` 且
+  `confirm=true`;只判存在,不取数据。DOM 上下文用 `web_dom_context`。
+- **披露**:`fairy_disclose` 只收 verified 发现;先 `fairy_ledger_advance(finding-status)`。
 - **HAR / 抓包**:`har_ingest` 静态看;需要"现在还是不是这样"用 `web_replay`。
 - **采集 → 静态复核**:`web_report` 产出的 `traffic.har` 交给
   `mcp__verdex__har_analyze`。
