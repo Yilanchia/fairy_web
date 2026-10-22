@@ -70,6 +70,9 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `fairy_ledger_advance` | 领取/结单意图,改发现状态 | 否 |
 | `fairy_ledger_ingest` | 把最近一次扫描报告导入账本 | 否 |
 | `fairy_chain_plan` | 按账本匹配攻击链,给最小证明与停止点 | 否 |
+| `web_login` | 单次登录并把会话存成命名 profile(不重试/不爆破) | 是 |
+| `web_session` | 会话管理:list/show/create/delete,不回显值 | 否 |
+| `web_compare` | 双会话差分:BOLA/IDOR/BFLA 证据骨架 | 是 |
 
 所有网络工具都要求 `project`(作业目录),scope 与产物都落在那里,天然按 engagement 隔离。
 
@@ -100,6 +103,30 @@ fairy_ledger_advance(action="done", intent_id="I-001", note="...")
 **最小证明、风险、是否需要人批准、在哪停**,只产计划不发请求。
 
 战略与 ARTEX 对标见 [`docs/STRATEGY.md`](docs/STRATEGY.md)。
+
+## 认证态与 BOLA
+
+登录是写操作,必须先在 scope 里显式授权 POST:
+
+```powershell
+node src/cli.js init D:\work\lab --include "127.0.0.1" --basis "自建靶场" --methods GET,POST
+node src/cli.js login D:\work\lab http://127.0.0.1:8080/login --session alice --data "username=alice&password=..."
+node src/cli.js login D:\work\lab http://127.0.0.1:8080/login --session bob   --data "username=bob&password=..."
+node src/cli.js compare D:\work\lab http://127.0.0.1:8080/api/orders/2 --a bob --b alice --marker "BOB-ORDER-2"
+```
+
+结果给 `verdict`:`marker-in-both` 且 A 是资源所有者时,说明 B 能读到 A 的对象,
+这就是 BOLA 候选。`compare` 默认只回状态/长度/正文哈希/相似度/标记,不回传正文。
+
+安全约束是硬的:
+
+- **只尝试一次**:没有重试、没有字典、没有爆破。
+- **会话不裸奔**:设 `FAIRY_SESSION_KEY`(≥8 字符)则 AES-256-GCM;否则 0600 落盘并在返回里带警告。`list`/`show` 只给头名,绝不回显 Cookie/Authorization。
+- **登录即写操作**:scope 的 `limits.methods` 不含 POST 时直接拒绝。
+- **差分不带数据**:正文只留 sha256 与长度,证据按 `request_id` 回审计日志。
+
+`web_scan` / `web_crawl` / `web_probe` / `web_report` 都接受 `--session`(MCP 里是 `session`),
+可以直接对登录后的页面/接口做只读检测。
 
 ## 授权护照
 
@@ -206,6 +233,8 @@ src/
   checks.js      被动/主动检测与暴露面
   scan.js        编排、去重、统计
   har.js         HAR 导入 / 脱敏导出
+  auth.js        单次登录 + 双会话差分
+  session.js     会话保管(加密/0600/不回显)
   ledger.js      作战账本:资产/事实/发现/意图/覆盖
   playbooks.js   web 攻击链知识库与匹配
   report.js      JSON / Markdown / 自包含 HTML
@@ -219,7 +248,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 ## 路线图
 
 - [x] v0.2 作战账本(资产/事实/发现/意图/覆盖)+ 8 条攻击链知识库
-- [ ] v0.3 认证态对比:登录录制 + 双账号 BOLA 证据差分
+- [x] v0.3 认证态:单次登录 + 加密会话 + 双账号 BOLA 证据差分
 - [ ] v0.3 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] v0.4 浏览器运行时(Playwright):SPA/XHR/DOM/控制台
 - [ ] v0.4 HAR 重放:把 Burp 请求按 scope 重放并做差分

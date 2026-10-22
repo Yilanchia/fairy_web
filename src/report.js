@@ -47,6 +47,7 @@ function renderMarkdown(result) {
   lines.push(`- 模式: ${result.mode}`);
   lines.push(`- 目标: ${result.targets.join(", ")}`);
   lines.push(`- 请求数: ${s.requests} / 页面: ${s.pages} / 发现: ${result.findings.length}`);
+  if (result.auth?.session) lines.push(`- 认证态: session \`${result.auth.session}\``);
   lines.push("");
 
   lines.push("## 授权记录", "");
@@ -208,7 +209,7 @@ code{font-family:ui-monospace,Consolas,monospace;color:#c9d1e0}
 <body><div class="wrap">
 <div class="brand">FAIRY<span>/WEB</span> · EVIDENCE REPORT</div>
 <h1>${escapeHtml(result.targets[0] || "")}</h1>
-<div class="sub">run ${escapeHtml(result.run_id)} · ${escapeHtml(result.generated_at)} · ${escapeHtml(result.mode)} · ${s.requests} requests / ${s.pages} pages</div>
+<div class="sub">run ${escapeHtml(result.run_id)} · ${escapeHtml(result.generated_at)} · ${escapeHtml(result.mode)} · ${s.requests} requests / ${s.pages} pages${result.auth?.session ? ` · auth ${escapeHtml(result.auth.session)}` : ""}</div>
 
 <div class="panel">
 <h2>授权记录</h2>

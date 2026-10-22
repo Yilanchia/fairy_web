@@ -192,4 +192,17 @@ export class CookieJar {
       sameSite: c.sameSite,
     }));
   }
+
+  // 仅供会话持久化:包含值,调用方必须落加密文件,绝不进报告/审计。
+  series() {
+    return this.cookies.map((c) => ({
+      name: c.name,
+      value: c.value,
+      domain: c.domain,
+      path: c.path,
+      secure: c.secure,
+      httpOnly: c.httpOnly,
+      sameSite: c.sameSite,
+    }));
+  }
 }

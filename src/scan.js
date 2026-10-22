@@ -108,6 +108,7 @@ export async function executeScan(projectDir, options = {}) {
       scope: scopeSummary(guard.scope),
       targets: urls,
       mode: options.crawl ? "crawl" : "probe",
+      auth: options.auth_label ? { session: options.auth_label } : null,
       pages: collected.pages.map(serializePage),
       attack_surface: {
         endpoints: [...new Set(collected.endpoints)].slice(0, 200),

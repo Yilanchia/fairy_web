@@ -35,6 +35,7 @@ export class Guard {
     this.scope = options.scope || loadScope(this.projectDir);
     this.runId = options.runId || makeRunId();
     this.jar = new CookieJar();
+    this.useJar = options.useJar !== false;
     this.count = 0;
     this.blocked = 0;
     this.traffic = [];
@@ -107,7 +108,7 @@ export class Guard {
 
       const reqId = `R${String(this.count).padStart(4, "0")}`;
       const requestHeaders = { accept: "*/*", "accept-encoding": "identity", ...headers };
-      if (!requestHeaders.cookie) {
+      if (this.useJar && !requestHeaders.cookie) {
         const jarCookie = this.jar.headerFor(current);
         if (jarCookie) requestHeaders.cookie = jarCookie;
       }
@@ -140,7 +141,7 @@ export class Guard {
       }
 
       const ms = Date.now() - started;
-      this.jar.setFrom(current, headerAll(raw.headers, "set-cookie"));
+      if (this.useJar) this.jar.setFrom(current, headerAll(raw.headers, "set-cookie"));
 
       const text = bodyText(raw);
       const page = {

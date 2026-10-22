@@ -6,6 +6,8 @@ import { crawl, probeUrls } from "./crawl.js";
 import { ingestHar } from "./har.js";
 import { executeScan, scan } from "./scan.js";
 import { writeReport } from "./report.js";
+import { login, compare } from "./auth.js";
+import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
 
 const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
@@ -15,8 +17,11 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js show   <project>
   node src/cli.js probe  <project> <url> [--method GET] [--header "K: V"] [--cookie "..." ]
   node src/cli.js crawl  <project> <url> [--pages 40] [--depth 2]
-  node src/cli.js scan   <project> <url...> [--crawl] [--pages 40] [--depth 2] [--no-active]
-  node src/cli.js report <project> <url...> [--crawl] [--pages 40]
+  node src/cli.js scan   <project> <url...> [--crawl] [--pages 40] [--depth 2] [--session alice]
+  node src/cli.js report <project> <url...> [--crawl] [--pages 40] [--session alice]
+  node src/cli.js login  <project> <url> --session alice --data "username=alice&password=..."
+  node src/cli.js session <project> list|show|delete|create [name] [--header "Cookie: ..."]
+  node src/cli.js compare <project> <url> --a alice --b bob [--marker "ALICE-ORDER-1"]
   node src/cli.js har    <project> <file.har>
   node src/cli.js mcp    [--project <dir>]
 
@@ -59,6 +64,11 @@ function headersOf(args) {
   }
   if (args.cookie) headers.cookie = String(args.cookie);
   return headers;
+}
+
+function sessionHeaders(project, name, headers) {
+  if (!name) return headers;
+  return { ...loadSession(project, name).headers, ...headers };
 }
 
 function boolOption(value, fallback = false) {
@@ -182,7 +192,8 @@ try {
       crawl: boolOption(args.crawl, false),
       max_pages: args.pages,
       max_depth: args.depth,
-      headers: headersOf(args),
+      headers: sessionHeaders(project, args.session, headersOf(args)),
+      auth_label: args.session || null,
       active: !args["no-active"],
     });
     print(result);
@@ -195,7 +206,8 @@ try {
       crawl: boolOption(args.crawl, false),
       max_pages: args.pages,
       max_depth: args.depth,
-      headers: headersOf(args),
+      headers: sessionHeaders(project, args.session, headersOf(args)),
+      auth_label: args.session || null,
     });
     const files = writeReport(project, { result, traffic });
     print({
@@ -205,6 +217,61 @@ try {
       findings: result.findings.map((f) => ({ id: f.id, severity: f.severity, title: f.title, where: f.where })),
       files,
     });
+  } else if (command === "login") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const url = args._[1];
+    if (!url) throw new Error("login 需要登录页 URL");
+    if (!args.session) throw new Error("login 需要 --session 名字");
+    const fields = {};
+    for (const [key, value] of new URLSearchParams(String(args.data || ""))) fields[key] = value;
+    const guard = new Guard(project);
+    try {
+      print(
+        await login(guard, {
+          url,
+          session: args.session,
+          fields,
+          headers: headersOf(args),
+          method: args.method,
+          json: boolOption(args.json, false),
+          token_field: args["token-field"],
+        }),
+      );
+    } finally {
+      guard.close();
+    }
+  } else if (command === "session") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const action = args._[1] || "list";
+    const name = args._[2];
+    if (action === "list") print({ ok: true, sessions: listSessions(project) });
+    else if (action === "show") print({ ok: true, session: describeSession(project, name) });
+    else if (action === "delete") print({ ok: true, ...deleteSession(project, name) });
+    else if (action === "create") {
+      const headers = headersOf(args);
+      if (!Object.keys(headers).length) throw new Error('session create 需要 --header "Cookie: ..."');
+      print({ ok: true, ...saveSession(project, name, { headers, note: args.note || "manual session" }) });
+    } else throw new Error(`未知 session 动作:${action}`);
+  } else if (command === "compare") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const url = args._[1];
+    if (!url || !args.a || !args.b) throw new Error("compare 需要 URL 与 --a <session> --b <session>");
+    const baseHeaders = headersOf(args);
+    const guard = new Guard(project, { useJar: false });
+    try {
+      print(
+        await compare(guard, {
+          url,
+          method: args.method,
+          marker: args.marker,
+          aHeaders: sessionHeaders(project, args.a, baseHeaders),
+          bHeaders: sessionHeaders(project, args.b, baseHeaders),
+          include_snippet: boolOption(args["include-snippet"], false),
+        }),
+      );
+    } finally {
+      guard.close();
+    }
   } else if (command === "har") {
     const file = args._[1] || args._[0];
     if (!file) throw new Error("har 需要文件路径");

@@ -7,6 +7,14 @@ import { crawl } from "./crawl.js";
 import { ingestHar } from "./har.js";
 import { executeScan, scan } from "./scan.js";
 import { writeReport } from "./report.js";
+import { login, compare } from "./auth.js";
+import {
+  loadSession,
+  saveSession,
+  listSessions,
+  describeSession,
+  deleteSession,
+} from "./session.js";
 import {
   initLedger,
   loadLedger,
@@ -47,6 +55,12 @@ const LIMITS_SCHEMA = {
 
 function projectOf(args) {
   return path.resolve(String(args.project || process.env.FAIRY_PROJECT || defaultProject || process.cwd()));
+}
+
+function withSession(project, sessionName, headers = {}) {
+  if (!sessionName) return headers;
+  const session = loadSession(project, sessionName);
+  return { ...session.headers, ...headers };
 }
 
 function summarizePages(pages) {
@@ -271,6 +285,7 @@ const TOOLS = [
         project: { type: "string" },
         url: { type: "string", description: "目标 URL(http/https)。" },
         method: { type: "string", description: "默认 GET;需在 scope.limits.methods 内。" },
+        session: { type: "string", description: "可选:已保存的会话名(web_login / web_session)。" },
         headers: HEADER_SCHEMA,
         body: { type: "string", description: "请求体(仅非 GET/HEAD 且方法已授权时使用)。" },
         follow_redirects: { type: "boolean", description: "默认 true;false 时只取第一跳。" },
@@ -282,7 +297,7 @@ const TOOLS = [
       try {
         const page = await guard.request(args.url, {
           method: args.method || "GET",
-          headers: args.headers || {},
+          headers: withSession(project, args.session, args.headers || {}),
           body: args.body,
           follow: args.follow_redirects !== false,
         });
@@ -308,6 +323,116 @@ const TOOLS = [
     },
   },
   {
+    name: "web_login",
+    description:
+      "对授权目标执行一次登录,把会话存成命名 profile(默认加密)。只尝试一次,不重试、不换字典、不爆破;登录是写操作,scope.limits.methods 必须显式包含 POST。凭据与会话值不会出现在输出里。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "url", "session", "fields"],
+      properties: {
+        project: { type: "string" },
+        url: { type: "string", description: "登录页 URL(HTML 表单)或登录接口 URL。" },
+        session: { type: "string", description: "会话名,如 alice / bob / admin。后续 web_scan/web_compare 用这个名字引用。" },
+        fields: { type: "object", additionalProperties: { type: "string" }, description: "表单字段,如 {username:'alice',password:'...'};隐藏字段(CSRF)会自动带上。" },
+        method: { type: "string", description: "默认按表单方法(通常是 POST),需在 scope.limits.methods 内。" },
+        headers: HEADER_SCHEMA,
+        json: { type: "boolean", description: "按 JSON 提交(前端 API 登录)。" },
+        token_field: { type: "string", description: "若登录返回 JSON token,指定字段名(如 access_token),会存成 Authorization: Bearer。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const guard = new Guard(project);
+      try {
+        return await login(guard, {
+          url: args.url,
+          session: args.session,
+          fields: args.fields,
+          method: args.method,
+          headers: args.headers || {},
+          json: args.json === true,
+          token_field: args.token_field,
+        });
+      } finally {
+        guard.close();
+      }
+    },
+  },
+  {
+    name: "web_session",
+    description:
+      "管理命名会话 profile:list 列出、show 看元数据(只给头名,不给值)、create 手动塞 Cookie/Authorization、delete 删除。会话默认 AES-256-GCM(设 FAIRY_SESSION_KEY)或 0600 明文并带警告。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "action"],
+      properties: {
+        project: { type: "string" },
+        action: { type: "string", enum: ["list", "show", "create", "delete"] },
+        name: { type: "string" },
+        headers: HEADER_SCHEMA,
+        note: { type: "string" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const action = String(args.action || "list");
+      if (action === "list") return { ok: true, sessions: listSessions(project) };
+      if (action === "show") {
+        if (!args.name) throw new Error("需要 name");
+        return { ok: true, session: describeSession(project, args.name) };
+      }
+      if (action === "delete") {
+        if (!args.name) throw new Error("需要 name");
+        return { ok: true, ...deleteSession(project, args.name) };
+      }
+      if (action === "create") {
+        if (!args.name) throw new Error("需要 name");
+        const headers = args.headers || {};
+        if (!Object.keys(headers).length) throw new Error("create 需要 headers(如 {Cookie:'sid=...'})");
+        const saved = saveSession(project, args.name, { headers, note: args.note || "manual session" });
+        return { ok: true, session: saved.name, enc: saved.enc, warning: saved.warning, header_names: Object.keys(headers) };
+      }
+      throw new Error(`未知 action:${action}`);
+    },
+  },
+  {
+    name: "web_compare",
+    description:
+      "用两个命名会话请求同一 URL 并做证据差分(BOLA/IDOR/BFLA):状态码、长度、正文哈希、相似度、标记命中。默认不回传正文。A 通常是资源所有者、B 是另一个账号;marker 是只在 A 对象里出现的唯一串。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "url", "session_a", "session_b"],
+      properties: {
+        project: { type: "string" },
+        url: { type: "string" },
+        session_a: { type: "string", description: "会话 A(资源所有者/参照)。" },
+        session_b: { type: "string", description: "会话 B(另一个账号)。" },
+        method: { type: "string", description: "默认 GET。" },
+        marker: { type: "string", description: "只在 A 的对象里出现的唯一标记(如订单号/用户名)。" },
+        headers: HEADER_SCHEMA,
+        include_snippet: { type: "boolean", description: "是否附带 200 字正文片段;默认 false。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      if (!args.session_a || !args.session_b) throw new Error("需要 session_a 与 session_b");
+      if (args.session_a === args.session_b) throw new Error("session_a 与 session_b 不能相同");
+      const guard = new Guard(project, { useJar: false });
+      try {
+        return await compare(guard, {
+          url: args.url,
+          method: args.method,
+          marker: args.marker,
+          aHeaders: withSession(project, args.session_a, args.headers || {}),
+          bHeaders: withSession(project, args.session_b, args.headers || {}),
+          include_snippet: args.include_snippet === true,
+        });
+      } finally {
+        guard.close();
+      }
+    },
+  },
+  {
     name: "web_crawl",
     description:
       "从种子 URL 做同源爬取:标题/链接/表单/JS 内联端点/外链主机,给攻击面草图。遵守 scope 限速与页数上限,只发 GET。",
@@ -319,6 +444,7 @@ const TOOLS = [
         url: { type: "string", description: "种子 URL(必须在 scope 内)。" },
         max_pages: { type: "number", description: "最多抓取页数,默认取 scope.limits.max_pages。" },
         max_depth: { type: "number", description: "链接深度,默认 2。" },
+        session: { type: "string", description: "可选:已保存的会话名(登录后爬取)。" },
         headers: HEADER_SCHEMA,
       },
     },
@@ -329,7 +455,7 @@ const TOOLS = [
         const result = await crawl(guard, args.url, {
           maxPages: args.max_pages,
           maxDepth: args.max_depth,
-          headers: args.headers || {},
+          headers: withSession(project, args.session, args.headers || {}),
         });
         return {
           ok: true,
@@ -360,6 +486,7 @@ const TOOLS = [
         crawl: { type: "boolean", description: "true 时先爬第一个 URL 再做检测。" },
         max_pages: { type: "number" },
         max_depth: { type: "number" },
+        session: { type: "string", description: "可选:已保存的会话名,用登录态扫描。" },
         headers: HEADER_SCHEMA,
         active: { type: "boolean", description: "默认 true;false 时只做被动检查(不发探测请求)。" },
       },
@@ -367,12 +494,14 @@ const TOOLS = [
     run: async (args) => {
       const urls = Array.isArray(args.urls) ? args.urls : [];
       if (!urls.length) throw new Error("urls 至少一个目标");
-      return scan(projectOf(args), {
+      const project = projectOf(args);
+      return scan(project, {
         urls,
         crawl: args.crawl === true,
         max_pages: args.max_pages,
         max_depth: args.max_depth,
-        headers: args.headers || {},
+        headers: withSession(project, args.session, args.headers || {}),
+        auth_label: args.session || null,
         active: args.active !== false,
       });
     },
@@ -390,6 +519,7 @@ const TOOLS = [
         crawl: { type: "boolean" },
         max_pages: { type: "number" },
         max_depth: { type: "number" },
+        session: { type: "string", description: "可选:已保存的会话名,用登录态扫描。" },
         headers: HEADER_SCHEMA,
       },
     },
@@ -402,7 +532,8 @@ const TOOLS = [
         crawl: args.crawl === true,
         max_pages: args.max_pages,
         max_depth: args.max_depth,
-        headers: args.headers || {},
+        headers: withSession(project, args.session, args.headers || {}),
+        auth_label: args.session || null,
       });
       const files = writeReport(project, { result, traffic });
       return {
@@ -443,6 +574,7 @@ const CLOSED_WORLD = new Set([
   "fairy_ledger_advance",
   "fairy_chain_plan",
   "fairy_ledger_ingest",
+  "web_session",
 ]);
 
 function annotationsFor(name) {

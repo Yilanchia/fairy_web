@@ -1,0 +1,28 @@
+{
+  "schema": "FairyScope/v1",
+  "authorization": {
+    "basis": "自建靶场认证态 demo",
+    "operator": "fairy",
+    "expires_at": null,
+    "note": ""
+  },
+  "include": [
+    "127.0.0.1"
+  ],
+  "exclude": [],
+  "limits": {
+    "rps": 40,
+    "max_requests": 2000,
+    "timeout_ms": 10000,
+    "max_bytes": 2000000,
+    "max_redirects": 5,
+    "max_pages": 40,
+    "max_active_pages": 15,
+    "verify_tls": true,
+    "allow_private": true,
+    "methods": [
+      "GET",
+      "POST"
+    ]
+  }
+}

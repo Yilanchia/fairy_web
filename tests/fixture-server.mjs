@@ -1,5 +1,19 @@
 import http from "node:http";
 
+function cookieValue(req, name) {
+  const raw = String(req.headers.cookie || "");
+  for (const part of raw.split(";")) {
+    const [key, ...rest] = part.trim().split("=");
+    if (key === name) return rest.join("=");
+  }
+  return null;
+}
+
+function json(res, status, body) {
+  res.writeHead(status, { "content-type": "application/json" });
+  res.end(JSON.stringify(body));
+}
+
 // 自建靶场:只监听 127.0.0.1,故意带一批典型配置问题,用来验证检测链路。
 export function startLab() {
   const server = http.createServer((req, res) => {
@@ -35,10 +49,53 @@ export function startLab() {
       return;
     }
     if (path === "/login") {
-      html("Login", "<form method=post action=/login><input name=user><input name=pass type=password></form>", {
-        "set-cookie": ["sid=abc123; Path=/", "theme=dark; Path=/; Max-Age=3600"],
-      });
+      if (req.method === "POST") {
+        let raw = "";
+        req.on("data", (chunk) => {
+          raw += chunk;
+        });
+        req.on("end", () => {
+          const form = new URLSearchParams(raw);
+          const user = form.get("username") || form.get("user");
+          const pass = form.get("password") || form.get("pass");
+          if (pass === "secret" && (user === "alice" || user === "bob")) {
+            res.writeHead(302, { location: "/account", "set-cookie": `sid=${user}; Path=/; HttpOnly` });
+            res.end();
+          } else {
+            res.writeHead(401, { "content-type": "text/html" });
+            res.end("<html>invalid credentials</html>");
+          }
+        });
+        return;
+      }
+      html(
+        "Login",
+        '<form method="post" action="/login"><input name="username"><input name="password" type="password"><input type="hidden" name="csrf" value="csrf-token"></form>',
+        { "set-cookie": ["theme=dark; Path=/; Max-Age=3600"] },
+      );
       return;
+    }
+    if (path === "/account") {
+      const sid = cookieValue(req, "sid");
+      if (!sid) {
+        res.writeHead(401, { "content-type": "text/html" });
+        res.end("<html>login required</html>");
+        return;
+      }
+      html(`${sid} account`, `<div>${sid} account</div>`);
+      return;
+    }
+    if (path === "/api/orders/1") {
+      const sid = cookieValue(req, "sid");
+      if (!sid) return json(res, 401, { error: "login required" });
+      if (sid === "alice") return json(res, 200, { owner: "alice", marker: "ALICE-ORDER-1" });
+      return json(res, 403, { error: "forbidden" });
+    }
+    if (path === "/api/orders/2") {
+      const sid = cookieValue(req, "sid");
+      if (!sid) return json(res, 401, { error: "login required" });
+      // 故意留一个 BOLA:任何登录用户都能读 bob 的订单。
+      return json(res, 200, { owner: "bob", marker: "BOB-ORDER-2" });
     }
     if (path === "/cors") {
       html("CORS", "<p>cors</p>", {

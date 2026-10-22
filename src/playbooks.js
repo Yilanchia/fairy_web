@@ -93,7 +93,7 @@ export const PLAYBOOKS = [
     ],
     steps: [
       { action: "账号 A 创建一条带唯一标记的资源,记录对象 id。", proof: "A 的资源 id", risk: "low", approval: false, requests: 1 },
-      { action: "账号 B 用同一 id 请求同一接口,只读一次,比较状态码/长度/内容。", proof: "B 读到 A 的标记", risk: "medium", approval: true, requests: 1 },
+      { action: "用 web_compare(session_a=A 所有者, session_b=B 另一账号, marker=A 对象里的唯一串)请求同一接口,只读一次。", proof: "verdict=marker-in-both,且 B 侧命中 A 的标记", risk: "medium", approval: true, requests: 2 },
       { action: "换一个资源类型重复一次,确认不是单点。", proof: "第二类对象同样越权", risk: "medium", approval: true, requests: 1 },
     ],
     stop: "读到一条属于 A 的标记即停。不遍历 id、不批量导出、不修改/删除他人数据。",
