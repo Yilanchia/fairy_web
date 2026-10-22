@@ -120,6 +120,27 @@ export const PLAYBOOKS = [
     refs: ["CWE-918", "OWASP A10:2021"],
   },
   {
+    id: "binary-artifact",
+    title: "二进制/固件样本 → 交 Verdex 只读分析",
+    attack_class: "artifact analysis / supply chain",
+    goal: "把 web 侧捞到的样本安全地交给 Verdex,拿回类型、源码/配置与凭据线索",
+    requires: [
+      {
+        label: "账本里有疑似二进制/固件样本",
+        test: (ctx) => hasAssetType(ctx, "artifact") || hasFactTag(ctx, "artifact"),
+      },
+    ],
+    steps: [
+      { action: "确认样本来源、大小与 sha256;web 下载走 fairy_handoff(confirm=true),复制到隔离目录。", proof: "sha256 + 大小 + 来源", risk: "low", approval: false, requests: 0 },
+      { action: "调 mcp__verdex__analyze_target 确认类型与链,再按 bin_info → 反编译/解包 → secrets 顺序执行。", proof: "Verdex 分析结果(类型/符号/伪 C/凭据)", risk: "low", approval: false, requests: 0 },
+      { action: "若样本来自泄露或第三方:按披露流程登记,不执行、不上传公共沙箱。", proof: "披露/交接记录", risk: "medium", approval: true, requests: 0 },
+    ],
+    stop: "只读分析,不执行样本、不联网回连、不上传第三方。",
+    safety: ["样本不执行", "分析在隔离目录", "凭据只登记不使用", "不公开样本本体"],
+    budget: "0 网络请求(本地分析)",
+    refs: ["ATT&CK T1608", "供应链样本分析"],
+  },
+  {
     id: "api-docs-authz",
     title: "API 文档暴露 → 鉴权矩阵 → BFLA",
     attack_class: "CWE-285 / broken function level auth",

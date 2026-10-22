@@ -8,7 +8,7 @@ import { nowIso, severityRank } from "./util.js";
 
 export const LEDGER_SCHEMA = "FairyLedger/v1";
 export const SEVERITIES = ["critical", "high", "medium", "low", "info"];
-const ASSET_TYPES = new Set(["host", "endpoint", "param", "account", "tech", "note"]);
+const ASSET_TYPES = new Set(["host", "endpoint", "param", "account", "tech", "artifact", "note"]);
 const RISKS = new Set(["low", "medium", "high"]);
 const FINDING_STATUS = new Set(["candidate", "verified", "false-positive", "remediated", "accepted-risk"]);
 const INTENT_STATUS = new Set(["todo", "active", "done", "blocked", "skipped"]);
@@ -184,6 +184,10 @@ export function addIntent(ledger, input = {}) {
   const assetIds = (Array.isArray(input.asset_ids) ? input.asset_ids : []).filter((id) =>
     ledger.assets.some((a) => a.id === id),
   );
+  const existing = ledger.intents.find(
+    (item) => item.goal === goal && (item.status === "todo" || item.status === "active"),
+  );
+  if (existing) return existing;
   const intent = {
     id: nextId(ledger.intents, "I"),
     goal: goal.slice(0, 300),
@@ -320,6 +324,21 @@ export function ingestScanReport(projectDir, report) {
           evidence: [{ kind: "http", url: page.requested_url || page.url, note: "web_scan fingerprint" }],
         });
       }
+    }
+
+    for (const artifact of report.attack_surface?.artifacts || []) {
+      const asset = addAsset(ledger, {
+        type: "artifact",
+        value: artifact.url,
+        tags: ["url", artifact.kind || "unknown"],
+      }).asset;
+      addFact(ledger, {
+        statement: `发现疑似 ${artifact.kind || "unknown"} 样本:${artifact.url}`,
+        confidence: "observed",
+        tags: ["artifact", artifact.kind || "unknown"],
+        asset_ids: [asset.id],
+        evidence: [{ kind: "http", url: artifact.url, note: "web_scan artifact discovery" }],
+      });
     }
 
     for (const finding of report.findings || []) {

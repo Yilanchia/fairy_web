@@ -249,6 +249,47 @@ export class Guard {
     return this.count;
   }
 
+  // 样本下载:只读 GET、单文件、硬上限,不进 traffic/HAR,避免把大文件拖进报告。
+  async download(url, options = {}) {
+    const maxBytes = Math.min(Math.max(Number(options.maxBytes) || 20_000_000, 1024), 20_000_000);
+    await this._check(url);
+    await this._throttle();
+    this.count += 1;
+    if (this.count > this.scope.limits.max_requests) {
+      throw new GuardError(`请求数超过 scope 上限 ${this.scope.limits.max_requests}`, "REQUEST_LIMIT");
+    }
+    const reqId = `D${String(this.count).padStart(4, "0")}`;
+    const started = Date.now();
+    const raw = await rawRequest({
+      url,
+      method: "GET",
+      headers: { accept: "*/*", "accept-encoding": "identity" },
+      timeoutMs: this.scope.limits.timeout_ms,
+      verifyTls: this.scope.limits.verify_tls,
+      maxBytes,
+    });
+    this._audit({
+      kind: "download",
+      ts: nowIso(),
+      run_id: this.runId,
+      req_id: reqId,
+      method: "GET",
+      url: redactUrl(url),
+      status: raw.status,
+      bytes: raw.body.length,
+      ms: Date.now() - started,
+    });
+    return {
+      request_id: reqId,
+      url,
+      status: raw.status,
+      headers: raw.headers,
+      body: raw.body,
+      truncated: raw.truncated,
+      tls: raw.tls,
+    };
+  }
+
   blockBrowserRequest(url, error, meta = {}) {
     this.blocked += 1;
     this._audit({

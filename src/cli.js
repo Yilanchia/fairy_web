@@ -9,6 +9,7 @@ import { writeReport } from "./report.js";
 import { login, compare } from "./auth.js";
 import { browse } from "./browser.js";
 import { replayHar } from "./replay.js";
+import { handoffFile, fetchArtifact } from "./handoff.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
 
@@ -25,6 +26,7 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js login  <project> <url> --session alice --data "username=alice&password=..."
   node src/cli.js session <project> list|show|delete|create [name] [--header "Cookie: ..."]
   node src/cli.js compare <project> <url> --a alice --b bob [--marker "ALICE-ORDER-1"]
+  node src/cli.js handoff <project> <path|url> [--confirm] [--max-bytes 20000000]
   node src/cli.js replay <project> <file.har> [--max 50] [--allow-write] [--session alice] [--replace "OLD=NEW"]
   node src/cli.js har    <project> <file.har>
   node src/cli.js mcp    [--project <dir>]
@@ -305,6 +307,26 @@ try {
       );
     } finally {
       guard.close();
+    }
+  } else if (command === "handoff") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const target = args._[1];
+    if (!target) throw new Error("handoff 需要本地样本路径或 URL");
+    if (/^https?:\/\//i.test(target)) {
+      const guard = new Guard(project);
+      try {
+        print(
+          await fetchArtifact(guard, {
+            url: target,
+            confirm: boolOption(args.confirm, false),
+            maxBytes: args["max-bytes"],
+          }),
+        );
+      } finally {
+        guard.close();
+      }
+    } else {
+      print(await handoffFile(project, target));
     }
   } else if (command === "replay") {
     const project = path.resolve(args._[0] || process.cwd());

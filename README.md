@@ -75,6 +75,7 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `web_compare` | 双会话差分:BOLA/IDOR/BFLA 证据骨架 | 是 |
 | `web_browser` | 无头浏览器(CDP):渲染/SPA/XHR/截图/页面动作 | 是 |
 | `web_replay` | 按 scope 重放 HAR,做状态/长度差分 | 是 |
+| `fairy_handoff` | 样本登记 + Verdex 链 + 本机后端预检 | 下载时是 |
 
 所有网络工具都要求 `project`(作业目录),scope 与产物都落在那里,天然按 engagement 隔离。
 
@@ -180,6 +181,27 @@ node src/cli.js replay D:\work\lab capture.har --allow-write --session alice --r
 > CVSS 是估计值,用于排序与沟通;定级前需要人工校准。**候选不等于已验证。**
 
 ![报告示例](docs/report-v2.png)
+
+## Fairy ↔ Verdex 交接
+
+Fairy 不啃二进制。web 上捞到 APK/固件/ELF/PE,它负责**登记 + 分诊 + 把链交出去**,
+真正分析由智能体调 Verdex 完成:
+
+```powershell
+# 本地样本:直接登记,给出 Verdex 链
+node src/cli.js handoff D:\work\lab D:\samples\app.apk
+
+# web 样本:必须显式确认才下载(单文件 ≤20MB,落 .fairy/artifacts,算 sha256)
+node src/cli.js handoff D:\work\lab https://target.example/downloads/app.apk --confirm
+```
+
+返回里除了 `artifact`(路径/类型/sha256)和 `verdex.chain`,还有 **`preflight`**:
+逐条告诉你本机缺哪个后端(`file`/`objdump`/`jadx`/IDA/Ghidra…),以及 `warnings`。
+智能体随后调 `mcp__verdex__analyze_target`,按可用后端跳步执行——不会一头撞死在
+`bin_info: 后端未安装 file` 上。
+
+样本本身**永远不执行**;落盘后只做静态分析。`binary-artifact` 链会把它并入作战账本,
+下一步该做什么(解包、反编译、扫密钥)直接进 `fairy_chain_plan`。
 
 ## 授权护照
 
@@ -290,6 +312,8 @@ src/
   browser.js     CDP 无头浏览器(SPA/XHR/截图/动作)
   replay.js      HAR 按 scope 重放与差分
   taxonomy.js    OWASP/CWE/CVSS/修复/复现归类
+  artifacts.js   样本类型识别 + Verdex 链/后端预检
+  handoff.js     样本登记、下载、交接给 Verdex
   session.js     会话保管(加密/0600/不回显)
   ledger.js      作战账本:资产/事实/发现/意图/覆盖
   playbooks.js   web 攻击链知识库与匹配
@@ -312,6 +336,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [ ] v0.5 参数级差分:SQLi/NoSQLi/SSTI/路径穿越,只判存在
 - [ ] v0.5 DOM XSS 专用判定(目前靠浏览器动作 + 人工)
 - [ ] v0.5 披露信模板
+- [x] v0.6 样本交接:artifact 发现/下载/登记 + Verdex 链 + 后端预检
 - [ ] 交互审批门:高风险步骤暂停等确认
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

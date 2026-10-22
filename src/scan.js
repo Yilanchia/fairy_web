@@ -11,6 +11,7 @@ import {
 import { scopeSummary } from "./scope.js";
 import { nowIso, redactHeaders, severityRank } from "./util.js";
 import { enrichFindings } from "./taxonomy.js";
+import { kindFromUrl } from "./artifacts.js";
 
 function serializePage(page) {
   return {
@@ -86,6 +87,17 @@ export async function executeScan(projectDir, options = {}) {
       activeRan += 1;
     }
 
+    const artifacts = [];
+    const seenArtifacts = new Set();
+    for (const page of collected.pages) {
+      for (const link of [...(page.links || []), ...(page.assets || [])]) {
+        const kind = kindFromUrl(link);
+        if (!kind || seenArtifacts.has(link)) continue;
+        seenArtifacts.add(link);
+        artifacts.push({ url: link, kind });
+      }
+    }
+
     const origins = [...new Set(collected.pages.map((p) => new URL(p.url).origin))].slice(0, 5);
     for (const origin of origins) {
       await exposureChecks(guard, origin, ctx, { headers: options.headers });
@@ -115,6 +127,7 @@ export async function executeScan(projectDir, options = {}) {
       attack_surface: {
         endpoints: [...new Set(collected.endpoints)].slice(0, 200),
         forms: collected.forms.slice(0, 100),
+        artifacts: artifacts.slice(0, 100),
         external_hosts: collected.external_hosts.slice(0, 50),
         probe_errors: collected.errors.concat(ctx.errors).slice(0, 50),
       },

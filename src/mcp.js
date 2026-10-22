@@ -10,6 +10,7 @@ import { writeReport } from "./report.js";
 import { login, compare } from "./auth.js";
 import { browse } from "./browser.js";
 import { replayHar } from "./replay.js";
+import { handoffFile, fetchArtifact, suggestUrl } from "./handoff.js";
 import {
   loadSession,
   saveSession,
@@ -227,6 +228,39 @@ const TOOLS = [
         throw new Error(`未知 action:${action}`);
       });
       return { ok: true, action, result, summary: ledgerSummary(loadLedger(project)) };
+    },
+  },
+  {
+    name: "fairy_handoff",
+    description:
+      "web ↔ binary 交接:本地样本(path)登记进账本并给出 Verdex 工具链;URL 需 confirm=true 才下载(单文件≤20MB、落 .fairy/artifacts、算 sha256),再交给智能体调 mcp__verdex__analyze_target。Fairy 不执行样本、不解析二进制。",
+    inputSchema: {
+      type: "object",
+      required: ["project"],
+      properties: {
+        project: { type: "string" },
+        path: { type: "string", description: "本地样本路径(已下载的 APK/ELF/PE/固件等)。" },
+        url: { type: "string", description: "样本 URL;不带 confirm 时只给建议、不下载。" },
+        confirm: { type: "boolean", description: "下载样本必须显式 true。" },
+        max_bytes: { type: "number", description: "下载上限,默认/最高 20MB。" },
+        note: { type: "string" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      if (args.path) return handoffFile(project, args.path, { note: args.note });
+      if (args.url) {
+        if (args.confirm === true) {
+          const guard = new Guard(project);
+          try {
+            return await fetchArtifact(guard, { url: args.url, confirm: true, maxBytes: args.max_bytes });
+          } finally {
+            guard.close();
+          }
+        }
+        return suggestUrl(project, args.url);
+      }
+      throw new Error("需要 path 或 url");
     },
   },
   {

@@ -88,6 +88,13 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] 交互审批门(高风险步骤暂停等确认)
 - 验收:每条 verified 发现都带分类、复现步骤、修复建议与 `request_id`,第三方可按报告复核。
 
+### v0.6 web ↔ binary 交接(本轮)
+- [x] 扫描时发现样本链接(APK/固件/ELF/PE/归档)
+- [x] 本地样本/URL 样本登记:sha256、隔离目录、不执行、需显式确认才下载
+- [x] 输出 Verdex 工具链 + 本机后端预检(`file`/`objdump`/`jadx`/IDA/Ghidra…)
+- [x] `binary-artifact` 链并入作战账本,下一步进 `fairy_chain_plan`
+- 验收:真实 PE → `pe` 链;实调 `mcp__verdex__analyze_target` 得 `pe`;`pwn_checksec`/`bin_strings` 可用;`bin_info` 缺 `file` 被预检标红并给出警告。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |
