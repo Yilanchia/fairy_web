@@ -24,6 +24,9 @@ const CANDIDATES = () => [
 ];
 
 export function findBrowser() {
+  if (typeof WebSocket !== "function") {
+    throw new Error("浏览器运行时需要 Node.js >= 22(内置 WebSocket);当前 Node 版本不满足。");
+  }
   for (const candidate of CANDIDATES()) {
     if (candidate && fs.existsSync(candidate)) return candidate;
   }

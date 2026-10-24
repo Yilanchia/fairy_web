@@ -2,3 +2,8 @@ node_modules/
 .fairy/
 *.har
 !tests/fixtures/*.har
+
+# local engagement / demo data (not part of the project)
+lab/
+lab-*/
+

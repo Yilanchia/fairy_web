@@ -1,14 +1,24 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-// Fairy 采集 → Verdex 静态复核:把 fairy 产出的 traffic.har 直接喂给 Verdex 的 har_analyze。
+// Feed a Fairy traffic.har into Verdex's static HAR analyzer.
+// Usage: node scripts/verdex-bridge.mjs <file.har> [verdex-root]
+// Or set VERDEX_ROOT.
 const har = process.argv[2];
 if (!har) {
-  console.error("用法: node scripts/verdex-bridge.mjs <file.har> [verdex 根目录]");
+  console.error("Usage: node scripts/verdex-bridge.mjs <file.har> [verdex-root]");
+  console.error("       (or set VERDEX_ROOT)");
   process.exit(1);
 }
-const root = process.argv[3] || "D:\\漏洞挖掘工作台";
-const mod = await import(pathToFileURL(path.join(root, "src", "web.js")).href);
+
+const root = process.argv[3] || process.env.VERDEX_ROOT;
+if (!root) {
+  console.error("Verdex root not provided. Pass it as the 3rd argument or set VERDEX_ROOT.");
+  process.exit(1);
+}
+
+const webModule = path.join(root, "src", "web.js");
+const mod = await import(pathToFileURL(webModule).href);
 const result = mod.analyzeHar(path.resolve(har));
 console.log(
   JSON.stringify(

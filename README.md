@@ -1,5 +1,26 @@
 # Fairy / Web
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D20-brightgreen)](package.json)
+[![test](https://github.com/Yilanchia/fairy_web/actions/workflows/test.yml/badge.svg)](https://github.com/Yilanchia/fairy_web/actions/workflows/test.yml)
+
+**Authorized web-pentest runtime for AI agents.** Fairy gives a model real HTTP
+and browser hands while keeping every request inside a declared scope: a scope
+passport, per-request audit trail, rate limits, data minimization, and
+evidence-first reporting.
+
+- CLI + MCP (stdio): recon, crawling, headless browser (CDP), login/BOLA diff,
+  safe injection probes, HAR replay, and sample handoff to Verdex.
+- Local-only artifacts: self-contained HTML report, HAR, engagement ledger,
+  disclosure draft.
+- No runtime dependencies; Node.js >= 20. Chrome/Edge is optional (browser tests
+  skip themselves when none is installed).
+
+> **Authorized use only.** Use Fairy on systems you own or have explicit written
+> permission to test. See [SECURITY.md](SECURITY.md).
+
+---
+
 > Verdex 够不到的那一段,由这只手来接:**真的发 HTTP,但每一发都带着授权护照和审计。**
 
 Verdex 是证据优先的静态分析内核——源码、逆向、pwn、固件、HAR,全都只读、只产文本、从不联网。这是它的原则,也是它的边界:web 渗透真正需要的那一步,是**和有血有肉的目标交互**。
@@ -29,6 +50,19 @@ Fairy / Web 补的就是这一步。它不是一个"更快的扫描器",而是�
 Fairy 采集到的流量会脱敏导出成 `traffic.har`,直接喂给 Verdex 的 `har_analyze` 做第二遍静态复核——两只手互相校验,而不是各自为战。
 
 ---
+
+## 安装
+
+```bash
+git clone https://github.com/Yilanchia/fairy_web.git
+cd fairy_web
+node --version   # >= 20
+npm test
+```
+
+没有第三方运行时依赖;MCP server 与 CLI 都直接跑在 Node 上。核心功能支持 Node.js 20+;
+**浏览器运行时需要 Node.js 22+**(使用内置 WebSocket)与本机 Chrome/Edge(CDP)。
+没有浏览器(或 Node < 22)时,浏览器相关测试会自动跳过。
 
 ## 快速开始(CLI)
 
@@ -361,16 +395,20 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.5 披露文档:只取 verified,不带证据正文
 - [ ] v0.5 交互审批门(高风险步骤暂停等确认)
 - [x] v0.6 样本交接:artifact 发现/下载/登记 + Verdex 链 + 后端预检
-- [ ] 交互审批门:高风险步骤暂停等确认
+- [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 
 ## 已知限制
 
 - 单次请求 + 启发式规则,不构成完整攻击面;`max_pages` / `max_active_pages` 之外的路径不会被测。
 - 反射/CORS/跳转都是候选,必须在浏览器或双账号环境人工复核后才能定级。
-- 不做 JS 渲染,SPA 的路由与接口只能拿到静态 HTML 里出现的那部分。
+- 无头浏览器覆盖不到 Canvas/复杂 WebAuthn 等场景;这类页面仍需人工。
 - 主动检测会向目标发包,仅限授权范围,并遵守项目规则(限速/禁爆破/测试时段)。
 
 ---
 
 只对授权目标动手。发现敏感数据即停,不 dump、不横向、不 hack-back。赢,还要全身而退。
+
+## License
+
+MIT © 2026 Yilanchia. See [LICENSE](LICENSE).
