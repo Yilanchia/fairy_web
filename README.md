@@ -159,7 +159,8 @@ fairy_auto_run(project, context={base_url:"https://...", session_a:"bob", sessio
 **最小证明、风险、是否需要人批准、在哪停**,只产计划不发请求。
 
 战略与 ARTEX 对标见 [`docs/STRATEGY.md`](docs/STRATEGY.md);与大厂/开源/AI 代理的
-能力面对比见 [`docs/COMPETITIVE.md`](docs/COMPETITIVE.md)。
+能力面对比见 [`docs/COMPETITIVE.md`](docs/COMPETITIVE.md);版本变更见
+[`CHANGELOG.md`](CHANGELOG.md)。
 
 ## 认证态与 BOLA
 
