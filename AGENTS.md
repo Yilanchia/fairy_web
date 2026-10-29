@@ -13,6 +13,8 @@
   `done`;`requires_approval` 的步骤不批准不会被领取。
 - **worker**:`fairy_worker_run` 只执行 active 且已审批的意图,动作白名单
   `probe/compare/browser/param/param_adaptive`;结果写回并结单。
+- **自动循环**:`fairy_auto_run` 只执行落单时声明好的 `work`;没声明就停
+  (`needs_action`),需要审批就停(`approve`),不自动批准、不推断动作。
 - **本地二进制 / APK / 固件 / 样本**:先 `fairy_handoff` 登记并拿链,再调
   `mcp__verdex__analyze_target`,按 `preflight` 跳过缺失后端的步骤。
 - **web 上发现的样本链接**:`web_scan` 会列进 `attack_surface.artifacts`;

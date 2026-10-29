@@ -107,6 +107,7 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `fairy_planner_tick` | 轮询:落单 ready 链 + 选出下一步/提示审批 | 否 |
 | `fairy_chain_materialize` | 把 ready 链落成有依赖的意图序列(幂等) | 否 |
 | `fairy_worker_run` | 执行 active 且已审批的意图(probe/compare/browser/param) | 是 |
+| `fairy_auto_run` | 自动循环 tick→claim→执行已声明 work,遇审批门停 | 是 |
 | `fairy_mission` | 一次有边界的任务:扫描→报告→入账→链规划 | 是 |
 | `web_login` | 单次登录并把会话存成命名 profile(不重试/不爆破) | 是 |
 | `web_session` | 会话管理:list/show/create/delete,不回显值 | 否 |
@@ -143,6 +144,8 @@ fairy_planner_tick(project, materialize=true)  # 落单 + 选下一步
 fairy_ledger_advance(action="claim")    # 领取下一步意图
 fairy_ledger_advance(action="approve", intent_id="I-002") # requires_approval 的步骤
 fairy_worker_run(intent_id="I-001", action="probe", url="https://...")  # 执行并自动结单
+# 或者交给自动循环:只执行落单时预先声明的 work,遇审批门/没声明就停
+fairy_auto_run(project, work=[{step:1, action:"probe", args:{url:"https://..."}}], max_steps=3)
 ```
 
 攻击链知识库在 [`src/playbooks.js`](src/playbooks.js):CORS+凭证、开放重定向+OAuth、
@@ -434,6 +437,7 @@ src/
   ledger.js      作战账本:资产/事实/发现/意图/覆盖
   planner.js     把 ready 链落成有依赖的意图序列
   worker.js      执行 active 意图(白名单动作 + 审批门)
+  auto.js        自动循环:tick→claim→执行已声明 work
   mission.js     有边界的任务:扫描→报告→入账→链规划
   playbooks.js   web 攻击链知识库与匹配
   report.js      JSON / Markdown / 自包含 HTML
@@ -464,6 +468,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.10 planner/worker:链落单 → 依赖领取 → 审批门 → 结单
 - [x] v0.11 worker:执行 active 意图(probe/compare/browser/param),结果写回账本
 - [x] v0.12 planner tick:自动落单 + 选下一步 + 审批提示
+- [x] v0.13 auto loop:执行已声明 work,遇审批门/无声明即停
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

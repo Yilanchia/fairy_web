@@ -205,6 +205,7 @@ export function addIntent(ledger, input = {}) {
         : Number.isInteger(Number(input.step_index))
           ? Number(input.step_index)
           : null,
+    work: input.work && typeof input.work === "object" && !Array.isArray(input.work) ? input.work : null,
     result: "",
     created_at: nowIso(),
     started_at: null,

@@ -33,11 +33,22 @@ export function materializeChain(projectDir, chainId, options = {}) {
       return { chain: summarize(chain), intents: existing, existing: true };
     }
 
+    const workPlan = new Map();
+    for (const item of Array.isArray(options.work) ? options.work : []) {
+      const step = Number(item?.step);
+      if (!Number.isInteger(step) || step < 1) continue;
+      workPlan.set(step, {
+        action: String(item.action || ""),
+        args: item.args && typeof item.args === "object" ? item.args : {},
+      });
+    }
+
     const intents = [];
     let dependsOn = [];
     for (let index = 0; index < chain.steps.length; index++) {
       const step = chain.steps[index];
       const goal = `${chain.title} · 步骤 ${index + 1}:${step.action}`.slice(0, 300);
+      const planned = workPlan.get(index + 1) || null;
       const intent = addIntent(ledger, {
         goal,
         depends_on: dependsOn,
@@ -47,6 +58,7 @@ export function materializeChain(projectDir, chainId, options = {}) {
         stop_condition: chain.stop,
         chain_id: chainId,
         step_index: index + 1,
+        work: planned,
       });
       intents.push(intent);
       dependsOn = [intent.id];
@@ -79,7 +91,7 @@ export function plannerTick(projectDir, options = {}) {
       (chain) => chain.readiness === "ready" && !ledger.intents.some((intent) => intent.chain_id === chain.id),
     );
     for (const chain of pending.slice(0, maxChains)) {
-      materialized.push(materializeChain(projectDir, chain.id));
+      materialized.push(materializeChain(projectDir, chain.id, { work: options.work }));
     }
     ledger = loadLedger(projectDir);
     chains = planChains(ledger);

@@ -42,6 +42,7 @@ import {
 import { planChains } from "./playbooks.js";
 import { materializeChain, plannerTick } from "./planner.js";
 import { runWorkerAction } from "./worker.js";
+import { autoRun } from "./auto.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = { name: "fairy", version: "0.1.0" };
@@ -312,6 +313,39 @@ const TOOLS = [
         chains,
       };
     },
+  },
+  {
+    name: "fairy_auto_run",
+    description:
+      "自动循环:planner tick → claim → 执行意图里预先声明的 work → 再 tick。没有 work 就停在 needs_action,需要审批就停在 approve,不自动批准、不推断动作、不重试。最多 max_steps 步。",
+    inputSchema: {
+      type: "object",
+      required: ["project"],
+      properties: {
+        project: { type: "string" },
+        max_steps: { type: "number", description: "默认 3,上限 10。" },
+        materialize: { type: "boolean", description: "默认 true:自动落单 ready 链。" },
+        work: {
+          type: "array",
+          description: "落单时写入意图的 work 计划:[{step:1, action:'probe', args:{url:'...'}}]。",
+          items: {
+            type: "object",
+            required: ["step", "action"],
+            properties: {
+              step: { type: "number" },
+              action: { type: "string", enum: ["probe", "compare", "browser", "param", "param_adaptive"] },
+              args: { type: "object" },
+            },
+          },
+        },
+      },
+    },
+    run: async (args) =>
+      autoRun(projectOf(args), {
+        maxSteps: args.max_steps,
+        materialize: args.materialize !== false,
+        work: args.work || [],
+      }),
   },
   {
     name: "fairy_worker_run",

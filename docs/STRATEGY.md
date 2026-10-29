@@ -141,6 +141,13 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] 跨轮自动循环(完成一步后自动 tick)
 - 验收:空账本先提示 materialize;落单后给 claim_next;审批未过时给 approve。
 
+### v0.13 auto loop
+- [x] `fairy_auto_run`:tick → claim → 执行已声明 work → 再 tick
+- [x] 没有 work 停在 `needs_action`;需要审批停在 `approve`
+- [x] 不自动批准、不自动推断动作、失败不重试
+- [ ] 跨轮续跑(外部调度器按状态继续)
+- 验收:声明 step1 probe,自动执行并结单;第二步审批未过时不执行。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |

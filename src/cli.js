@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from "node:fs";
 import path from "node:path";
 import { saveScope, loadScope, scopeSummary, SCOPE_FILE } from "./scope.js";
 import { Guard } from "./guard.js";
@@ -17,6 +18,7 @@ import { writeDisclosure } from "./disclosure.js";
 import { runMission } from "./mission.js";
 import { materializeChain, plannerTick } from "./planner.js";
 import { runWorkerAction } from "./worker.js";
+import { autoRun } from "./auto.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
 
@@ -39,6 +41,7 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js param  <project> <url...> --confirm [--classes sqli,ssti] [--max-params 20] [--session alice]
   node src/cli.js param-adaptive <project> <url> --param q --confirm [--classes sqli,ssti] [--session alice]
   node src/cli.js tick <project> [--materialize] [--max 1]
+  node src/cli.js auto <project> [--max 3] [--work work.json]
   node src/cli.js materialize <project> <chain_id>
   node src/cli.js worker <project> <intent_id> --action probe --url <url> [--session alice] [--a alice --b bob --marker X]
   node src/cli.js disclose <project> [--include-candidates]
@@ -420,6 +423,16 @@ try {
     } finally {
       guard.close();
     }
+  } else if (command === "auto") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const work = args.work ? JSON.parse(fs.readFileSync(path.resolve(args.work), "utf8")) : [];
+    print(
+      await autoRun(project, {
+        maxSteps: args.max,
+        materialize: !args["no-materialize"],
+        work: Array.isArray(work) ? work : [],
+      }),
+    );
   } else if (command === "tick") {
     const project = path.resolve(args._[0] || process.cwd());
     print(plannerTick(project, {
