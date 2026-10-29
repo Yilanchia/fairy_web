@@ -126,6 +126,14 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] 自动 worker(执行步骤)与跨轮 planner
 - 验收:落单 3 步链,claim 第一步;完成后第二步因审批门不可领取,approve 后可领取。
 
+### v0.11 worker
+- [x] `fairy_worker_run`:执行 active 且已审批的意图
+- [x] 动作白名单:`probe / compare / browser / param / param_adaptive`
+- [x] 结果写回意图并结单;没有隐式重试、没有自选目标
+- [x] 未审批 / 未 claim / 非白名单动作直接拒绝
+- [ ] worker 自动选择动作(仍需 LLM 规划)
+- 验收:claim 第一步后执行 probe,结果写回;requires_approval 的意图在 approve 前被拒。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |

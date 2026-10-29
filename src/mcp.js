@@ -41,6 +41,7 @@ import {
 } from "./ledger.js";
 import { planChains } from "./playbooks.js";
 import { materializeChain } from "./planner.js";
+import { runWorkerAction } from "./worker.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = { name: "fairy", version: "0.1.0" };
@@ -310,6 +311,48 @@ const TOOLS = [
         blocked: chains.filter((c) => c.readiness === "blocked").length,
         chains,
       };
+    },
+  },
+  {
+    name: "fairy_worker_run",
+    description:
+      "执行一条 active 且审批门已满足的意图。动作白名单:probe / compare / browser / param / param_adaptive。执行结果写回意图并结单;不重试、不换目标。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "intent_id", "action"],
+      properties: {
+        project: { type: "string" },
+        intent_id: { type: "string" },
+        action: { type: "string", enum: ["probe", "compare", "browser", "param", "param_adaptive"] },
+        url: { type: "string" },
+        session: { type: "string" },
+        session_a: { type: "string" },
+        session_b: { type: "string" },
+        marker: { type: "string" },
+        param: { type: "string" },
+        classes: { type: "array", items: { type: "string", enum: ["sqli", "ssti"] } },
+        headers: HEADER_SCHEMA,
+        method: { type: "string" },
+        wait_ms: { type: "number" },
+        complete: { type: "boolean", description: "默认 true;false 时只返回结果,意图保持 active。" },
+      },
+    },
+    run: async (args) => {
+      return runWorkerAction(projectOf(args), {
+        intentId: args.intent_id,
+        action: args.action,
+        url: args.url,
+        session: args.session,
+        session_a: args.session_a,
+        session_b: args.session_b,
+        marker: args.marker,
+        param: args.param,
+        classes: args.classes,
+        headers: args.headers || {},
+        method: args.method,
+        wait_ms: args.wait_ms,
+        complete: args.complete !== false,
+      });
     },
   },
   {

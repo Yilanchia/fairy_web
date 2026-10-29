@@ -11,6 +11,8 @@
   不跑参数探测、不跑 WAF 画像。
 - **计划/执行**:`fairy_chain_plan` → `fairy_chain_materialize` → `claim` / `approve` /
   `done`;`requires_approval` 的步骤不批准不会被领取。
+- **worker**:`fairy_worker_run` 只执行 active 且已审批的意图,动作白名单
+  `probe/compare/browser/param/param_adaptive`;结果写回并结单。
 - **本地二进制 / APK / 固件 / 样本**:先 `fairy_handoff` 登记并拿链,再调
   `mcp__verdex__analyze_target`,按 `preflight` 跳过缺失后端的步骤。
 - **web 上发现的样本链接**:`web_scan` 会列进 `attack_surface.artifacts`;
