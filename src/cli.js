@@ -20,6 +20,8 @@ import { materializeChain, plannerTick } from "./planner.js";
 import { runWorkerAction } from "./worker.js";
 import { autoRun } from "./auto.js";
 import { runRoleMatrix } from "./matrix.js";
+import { createHighAuth } from "./highauth.js";
+import { runReachability } from "./reachability.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
 
@@ -37,6 +39,8 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js login  <project> <url> --session alice --data "username=alice&password=..."
   node src/cli.js session <project> list|show|delete|create [name] [--header "Cookie: ..."]
   node src/cli.js compare <project> <url> --a alice --b bob [--marker "ALICE-ORDER-1"]
+  node src/cli.js high-auth <project> --basis "..." --approver "..." --assets "host1,host2" [--hours 24]
+  node src/cli.js reachability <project> <url...> --sessions alice,bob
   node src/cli.js matrix <project> <url...> --sessions alice,bob [--no-anon]
   node src/cli.js dom    <project> <url> --param q [--session alice]
   node src/cli.js waf    <project> <url> --param q --confirm [--session alice]
@@ -370,6 +374,33 @@ try {
           sessionHeaders: session ? session.headers : null,
           waitMs: args["wait-ms"],
           screenshot: boolOption(args.screenshot, false),
+        }),
+      );
+    } finally {
+      guard.close();
+    }
+  } else if (command === "high-auth") {
+    const project = path.resolve(args._[0] || process.cwd());
+    print(
+      createHighAuth(project, {
+        basis: args.basis,
+        approver: args.approver,
+        assets: args.assets ? String(args.assets).split(",") : [],
+        hours: args.hours,
+      }),
+    );
+  } else if (command === "reachability") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const urls = args._.slice(1);
+    if (!urls.length) throw new Error("reachability 需要至少一个 URL");
+    const guard = new Guard(project);
+    try {
+      print(
+        await runReachability(guard, {
+          urls,
+          sessions: args.sessions ? String(args.sessions).split(",") : undefined,
+          includeAnonymous: !args["no-anon"],
+          headers: headersOf(args),
         }),
       );
     } finally {

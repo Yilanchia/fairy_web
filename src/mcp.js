@@ -44,6 +44,7 @@ import { materializeChain, plannerTick } from "./planner.js";
 import { runWorkerAction } from "./worker.js";
 import { autoRun } from "./auto.js";
 import { runRoleMatrix } from "./matrix.js";
+import { runReachability } from "./reachability.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = { name: "fairy", version: "0.1.0" };
@@ -755,6 +756,36 @@ const TOOLS = [
           sessions: args.sessions,
           includeAnonymous: args.include_anonymous !== false,
           headers: withSession(project, null, args.headers || {}),
+        });
+      } finally {
+        guard.close();
+      }
+    },
+  },
+  {
+    name: "fairy_reachability",
+    description:
+      "最高授权后的只读可达性图:多账号 × 多端点,画身份/权限/资产连接。需要 .fairy/high-auth.json(FAIRY_AUTH_KEY 签名,仅 read-only);不做横向执行。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "urls"],
+      properties: {
+        project: { type: "string" },
+        urls: { type: "array", items: { type: "string" } },
+        sessions: { type: "array", items: { type: "string" } },
+        include_anonymous: { type: "boolean", description: "默认 true。" },
+        headers: HEADER_SCHEMA,
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const guard = new Guard(project);
+      try {
+        return await runReachability(guard, {
+          urls: args.urls,
+          sessions: args.sessions,
+          includeAnonymous: args.include_anonymous !== false,
+          headers: args.headers || {},
         });
       } finally {
         guard.close();

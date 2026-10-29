@@ -113,6 +113,7 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `web_session` | 会话管理:list/show/create/delete,不回显值 | 否 |
 | `web_compare` | 双会话差分:BOLA/IDOR/BFLA 证据骨架 | 是 |
 | `web_role_matrix` | 多账号 × 多端点权限矩阵(只读 GET) | 是 |
+| `fairy_reachability` | 最高授权后的只读身份/权限/资产图 | 是 |
 | `web_browser` | 无头浏览器(CDP):渲染/SPA/XHR/截图/页面动作 | 是 |
 | `web_replay` | 按 scope 重放 HAR,做状态/长度差分 | 是 |
 | `fairy_handoff` | 样本登记 + Verdex 链 + 本机后端预检 | 下载时是 |
@@ -202,6 +203,36 @@ node src/cli.js matrix D:\work\lab `
 
 它只给候选,不读对象内容、不提权、不执行横向。复核时用两个真实测试账号,
 确认差异来自对象归属,不要批量拉数据。
+
+## 最高授权闸:只读触手
+
+跨资产可达性需要一份**签名授权文件**,不是 UI 开关:
+
+```powershell
+$env:FAIRY_AUTH_KEY = "至少16字符的密钥"   # 授权人保管
+node src/cli.js high-auth D:\work\lab `
+  --basis "客户书面授权 + 红队范围附件" `
+  --approver "security-lead" `
+  --assets "127.0.0.1,10.10.0.0" `
+  --hours 24
+
+node src/cli.js reachability D:\work\lab `
+  "http://127.0.0.1:8080/account" `
+  "http://127.0.0.1:8080/admin" `
+  --sessions alice,admin
+```
+
+`high-auth` 只能由持有 `FAIRY_AUTH_KEY` 的授权人运行;agent 只能验证、不能自签。
+授权文件写清依据、批准人、资产清单、到期时间,并用 HMAC-SHA256 签名。
+
+闸后只开三件事:
+
+- 跨受权资产只读 GET;
+- 身份/权限/资产可达性图;
+- 角色差异与登录态差异候选。
+
+闸后**不开**:横向执行、凭据窃取、持久化、隧道、隐蔽规避。
+`actions` 只允许 `read-only`;签名里出现其他动作直接拒绝。
 
 ## 浏览器运行时
 
@@ -468,6 +499,8 @@ src/
   auto.js        自动循环:tick→claim→执行已声明/推断的 work
   work.js        从 chain 步骤 + context 推断只读 work
   matrix.js      多账号 × 多端点权限矩阵(只读)
+  highauth.js    最高授权文件(HMAC,仅 read-only)
+  reachability.js 最高授权后的身份/权限/资产图
   mission.js     有边界的任务:扫描→报告→入账→链规划
   playbooks.js   web 攻击链知识库与匹配
   report.js      JSON / Markdown / 自包含 HTML
@@ -501,6 +534,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.13 auto loop:执行已声明 work,遇审批门/无声明即停
 - [x] v0.14 work 推断:给了 context 才推断,没有就停在 needs_action
 - [x] v0.15 权限矩阵:多账号 × 多端点,识别 BFLA/IDOR 候选
+- [x] v0.16 最高授权闸:HMAC 授权 + 只读可达性图,不解锁横向执行
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

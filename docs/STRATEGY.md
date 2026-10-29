@@ -164,6 +164,14 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] 角色/租户矩阵自动发现与 API schema 驱动
 - 验收:admin 200 / alice 403 被标 role-restricted;多账号正文哈希不同被标 data-diff。
 
+### v0.16 最高授权闸
+- [x] `high-auth`:HMAC 签名授权文件(basis/approver/assets/expiry/actions)
+- [x] `fairy_reachability`:最高授权后的只读身份/权限/资产图
+- [x] 动作白名单只有 `read-only`;横向/凭据/持久化/隧道直接拒绝
+- [x] agent 不能自签,只能验证;密钥在授权人手里
+- [ ] 多资产图的可视化与导出
+- 验收:无授权文件拒绝;资产不在清单拒绝;签名/动作/过期校验通过后只读出图。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |
