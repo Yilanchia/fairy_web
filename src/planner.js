@@ -1,5 +1,6 @@
 import { loadLedger, appendLedger, addIntent } from "./ledger.js";
 import { planChains } from "./playbooks.js";
+import { inferWork } from "./work.js";
 
 // Planner:把一条 ready 链落成有依赖的意图序列。
 // Worker 不直接"打整条链",只领取依赖已满足的下一步;每完成一步再唤醒下一步。
@@ -48,7 +49,8 @@ export function materializeChain(projectDir, chainId, options = {}) {
     for (let index = 0; index < chain.steps.length; index++) {
       const step = chain.steps[index];
       const goal = `${chain.title} · 步骤 ${index + 1}:${step.action}`.slice(0, 300);
-      const planned = workPlan.get(index + 1) || null;
+      const planned =
+        workPlan.get(index + 1) || inferWork(chainId, index + 1, options.context || {}) || null;
       const intent = addIntent(ledger, {
         goal,
         depends_on: dependsOn,
@@ -91,7 +93,9 @@ export function plannerTick(projectDir, options = {}) {
       (chain) => chain.readiness === "ready" && !ledger.intents.some((intent) => intent.chain_id === chain.id),
     );
     for (const chain of pending.slice(0, maxChains)) {
-      materialized.push(materializeChain(projectDir, chain.id, { work: options.work }));
+      materialized.push(
+        materializeChain(projectDir, chain.id, { work: options.work, context: options.context || {} }),
+      );
     }
     ledger = loadLedger(projectDir);
     chains = planChains(ledger);

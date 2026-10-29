@@ -338,6 +338,10 @@ const TOOLS = [
             },
           },
         },
+        context: {
+          type: "object",
+          description: "自动推断 work 的上下文:base_url/url/map_url/doc_url/canary_url/param/session_a/session_b/marker。",
+        },
       },
     },
     run: async (args) =>
@@ -345,6 +349,7 @@ const TOOLS = [
         maxSteps: args.max_steps,
         materialize: args.materialize !== false,
         work: args.work || [],
+        context: args.context || {},
       }),
   },
   {
@@ -400,12 +405,17 @@ const TOOLS = [
         project: { type: "string" },
         materialize: { type: "boolean", description: "是否自动落单 ready 链,默认 false。" },
         max_chains: { type: "number", description: "本轮最多落单几条链,默认 1,上限 5。" },
+        context: {
+          type: "object",
+          description: "自动推断 work 的上下文:base_url/url/map_url/doc_url/canary_url/param/session_a/session_b/marker。",
+        },
       },
     },
     run: async (args) =>
       plannerTick(projectOf(args), {
         materialize: args.materialize === true,
         maxChains: args.max_chains,
+        context: args.context || {},
       }),
   },
   {
@@ -419,11 +429,16 @@ const TOOLS = [
         project: { type: "string" },
         chain_id: { type: "string", description: "fairy_chain_plan 返回的 chain id。" },
         asset_ids: { type: "array", items: { type: "string" }, description: "可选:把意图锚定到账本资产。" },
+        context: {
+          type: "object",
+          description: "自动推断 work 的上下文:base_url/url/map_url/doc_url/canary_url/param/session_a/session_b/marker。",
+        },
       },
     },
     run: async (args) => {
       const result = materializeChain(projectOf(args), args.chain_id, {
         asset_ids: args.asset_ids || [],
+        context: args.context || {},
       });
       return { ok: true, ...result };
     },

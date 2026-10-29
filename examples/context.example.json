@@ -1,0 +1,11 @@
+{
+  "base_url": "http://127.0.0.1:8080",
+  "url": "http://127.0.0.1:8080/api/orders/2",
+  "session_a": "bob",
+  "session_b": "alice",
+  "marker": "BOB-ORDER-2",
+  "map_url": "http://127.0.0.1:8080/static/app.js.map",
+  "doc_url": "http://127.0.0.1:8080/swagger.json",
+  "canary_url": "https://your-canary.example/fairy",
+  "param": "id"
+}

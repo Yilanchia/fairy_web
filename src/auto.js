@@ -30,6 +30,7 @@ export async function autoRun(projectDir, options = {}) {
       materialize: options.materialize !== false,
       maxChains: 1,
       work: options.work,
+      context: options.context || {},
     });
 
     if (tick.recommendation !== "claim_next") {

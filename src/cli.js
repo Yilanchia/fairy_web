@@ -41,7 +41,7 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js param  <project> <url...> --confirm [--classes sqli,ssti] [--max-params 20] [--session alice]
   node src/cli.js param-adaptive <project> <url> --param q --confirm [--classes sqli,ssti] [--session alice]
   node src/cli.js tick <project> [--materialize] [--max 1]
-  node src/cli.js auto <project> [--max 3] [--work work.json]
+  node src/cli.js auto <project> [--max 3] [--work work.json] [--context context.json]
   node src/cli.js materialize <project> <chain_id>
   node src/cli.js worker <project> <intent_id> --action probe --url <url> [--session alice] [--a alice --b bob --marker X]
   node src/cli.js disclose <project> [--include-candidates]
@@ -104,6 +104,11 @@ function boolOption(value, fallback = false) {
 
 function print(value) {
   process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+function contextOf(args) {
+  if (!args.context) return {};
+  return JSON.parse(fs.readFileSync(path.resolve(String(args.context)), "utf8"));
 }
 
 const command = process.argv[2] || "help";
@@ -431,6 +436,7 @@ try {
         maxSteps: args.max,
         materialize: !args["no-materialize"],
         work: Array.isArray(work) ? work : [],
+        context: contextOf(args),
       }),
     );
   } else if (command === "tick") {
@@ -438,12 +444,13 @@ try {
     print(plannerTick(project, {
       materialize: boolOption(args.materialize, false),
       maxChains: args.max,
+      context: contextOf(args),
     }));
   } else if (command === "materialize") {
     const project = path.resolve(args._[0] || process.cwd());
     const chainId = args._[1];
     if (!chainId) throw new Error("materialize 需要 chain_id(先跑 chain plan)");
-    print({ ok: true, ...materializeChain(project, chainId) });
+    print({ ok: true, ...materializeChain(project, chainId, { context: contextOf(args) }) });
   } else if (command === "worker") {
     const project = path.resolve(args._[0] || process.cwd());
     const intentId = args._[1];

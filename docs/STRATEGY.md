@@ -148,6 +148,14 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] 跨轮续跑(外部调度器按状态继续)
 - 验收:声明 step1 probe,自动执行并结单;第二步审批未过时不执行。
 
+### v0.14 work inference
+- [x] 从 chain_id + step_index + context 推断只读 work
+- [x] 支持 git/泄露、IDOR、反射 XSS、SourceMap、API 文档、SSRF 六类
+- [x] 没有 context 不推断,停在 `needs_action`
+- [x] 推断结果标记 `inferred=true`,仍走审批门
+- [ ] 更多链的动作映射与参数模板
+- 验收:给 `base_url` 自动推断 git 链 step1 probe 并执行;不给 context 停在 needs_action。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |

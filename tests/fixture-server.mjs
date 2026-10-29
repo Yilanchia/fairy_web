@@ -114,6 +114,11 @@ export function startLab() {
       res.end('{"ok":true}');
       return;
     }
+    if (path === "/.git/config") {
+      res.writeHead(200, { "content-type": "text/plain" });
+      res.end("[core]\n\trepositoryformatversion = 0\n");
+      return;
+    }
     if (path === "/.git/HEAD") {
       res.writeHead(200, { "content-type": "text/plain" });
       res.end("ref: refs/heads/main\n");
