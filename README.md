@@ -154,7 +154,8 @@ fairy_auto_run(project, context={base_url:"https://...", session_a:"bob", sessio
 反射 XSS、Git 源码泄露、BOLA、SSRF、API 文档、SourceMap。每条链都写清楚
 **最小证明、风险、是否需要人批准、在哪停**,只产计划不发请求。
 
-战略与 ARTEX 对标见 [`docs/STRATEGY.md`](docs/STRATEGY.md)。
+战略与 ARTEX 对标见 [`docs/STRATEGY.md`](docs/STRATEGY.md);与大厂/开源/AI 代理的
+能力面对比见 [`docs/COMPETITIVE.md`](docs/COMPETITIVE.md)。
 
 ## 认证态与 BOLA
 
