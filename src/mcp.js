@@ -45,6 +45,8 @@ import { runWorkerAction } from "./worker.js";
 import { autoRun } from "./auto.js";
 import { runRoleMatrix } from "./matrix.js";
 import { runReachability } from "./reachability.js";
+import { ingestPayload, ingestFile } from "./ingest.js";
+import { writeLedgerReport } from "./evidence-report.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = { name: "fairy", version: "0.1.0" };
@@ -444,6 +446,41 @@ const TOOLS = [
       });
       return { ok: true, ...result };
     },
+  },
+  {
+    name: "fairy_ingest",
+    description:
+      "统一证据入口:把 scan/param/WAF/权限矩阵/可达性/Verdex 的 JSON 结果归一进账本,写 source_run_id/source_id,幂等。只写账本,不发请求。",
+    inputSchema: {
+      type: "object",
+      required: ["project"],
+      properties: {
+        project: { type: "string" },
+        payload: { type: "object", description: "直接传工具返回的 JSON。" },
+        path: { type: "string", description: "或传本地 JSON 文件路径(如 Verdex report/analysis)。" },
+        source: { type: "string", description: "可选来源覆盖,如 verdex。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      if (args.path) return ingestFile(project, args.path, { source: args.source });
+      if (args.payload) return ingestPayload(project, args.payload, { source: args.source });
+      throw new Error("需要 payload 或 path");
+    },
+  },
+  {
+    name: "fairy_report_bundle",
+    description:
+      "以账本为准生成跨工具证据报告(JSON/Markdown/HTML),包含所有来源的发现、资产、事实与覆盖 runs。",
+    inputSchema: {
+      type: "object",
+      required: ["project"],
+      properties: {
+        project: { type: "string" },
+        title: { type: "string" },
+      },
+    },
+    run: async (args) => writeLedgerReport(projectOf(args), { title: args.title }),
   },
   {
     name: "fairy_ledger_ingest",
@@ -1087,6 +1124,8 @@ const CLOSED_WORLD = new Set([
   "fairy_ledger_advance",
   "fairy_chain_plan",
   "fairy_ledger_ingest",
+  "fairy_ingest",
+  "fairy_report_bundle",
   "fairy_chain_materialize",
   "fairy_planner_tick",
   "web_session",

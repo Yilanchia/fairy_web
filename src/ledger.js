@@ -150,20 +150,28 @@ export function addFinding(ledger, input = {}) {
   const kind = String(input.kind || "unknown");
   const where = String(input.where || "").slice(0, 500);
   const existing = ledger.findings.find((f) => f.title === title && f.kind === kind && f.where === where);
-  if (existing) return { finding: existing, added: false };
+  if (existing) {
+    if (!existing.source_run_id && input.source_run_id) existing.source_run_id = input.source_run_id;
+    if (!existing.source_id && input.source_id) existing.source_id = input.source_id;
+    if (!existing.source && input.source) existing.source = input.source;
+    return { finding: existing, added: false };
+  }
   const finding = {
     id: nextId(ledger.findings, "V"),
     title: title.slice(0, 200),
     kind,
     severity,
     status: FINDING_STATUS.has(input.status) ? input.status : "candidate",
+    confidence: ["low", "medium", "high"].includes(input.confidence) ? input.confidence : "medium",
     where,
     detail: input.detail ? String(input.detail).slice(0, 1000) : "",
     impact: input.impact ? String(input.impact).slice(0, 1000) : "",
     remediation: input.remediation ? String(input.remediation).slice(0, 1000) : "",
     owasp: input.owasp ? String(input.owasp).slice(0, 80) : null,
+    cwe: input.cwe ? String(input.cwe).slice(0, 120) : null,
     cvss: Number.isFinite(Number(input.cvss)) ? Number(input.cvss) : null,
     evidence: normalizeEvidence(input.evidence),
+    source: input.source ? String(input.source).slice(0, 40) : null,
     source_run_id: input.source_run_id || null,
     source_id: input.source_id || null,
     created_at: nowIso(),

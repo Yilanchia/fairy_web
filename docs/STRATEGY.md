@@ -172,6 +172,14 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] 多资产图的可视化与导出
 - 验收:无授权文件拒绝;资产不在清单拒绝;签名/动作/过期校验通过后只读出图。
 
+### v0.17 证据闭环
+- [x] `fairy_ingest`:scan/param/WAF/矩阵/可达性/Verdex 统一入账
+- [x] `source_run_id` / `source_id` / `source`,重复导入幂等
+- [x] `fairy_report_bundle`:以账本为准的跨工具 JSON/MD/HTML 报告
+- [x] Verdex `file:line` findings 回流,不再只停在交接
+- [ ] 报告与披露模板合一、状态流转可视化
+- 验收:param + Verdex 入同一账本;bundle 报告同时出现两种来源;重复导入 skipped。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |

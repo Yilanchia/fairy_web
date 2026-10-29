@@ -117,6 +117,8 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `web_browser` | 无头浏览器(CDP):渲染/SPA/XHR/截图/页面动作 | 是 |
 | `web_replay` | 按 scope 重放 HAR,做状态/长度差分 | 是 |
 | `fairy_handoff` | 样本登记 + Verdex 链 + 本机后端预检 | 下载时是 |
+| `fairy_ingest` | 统一证据入口:scan/param/WAF/矩阵/可达性/Verdex | 否 |
+| `fairy_report_bundle` | 以账本为准生成跨工具证据报告 | 否 |
 | `web_param` | 参数级探测:SQLi 错误/布尔、SSTI(需双重授权) | 是 |
 | `web_waf` | WAF 指纹 + 编码规范化差异矩阵(需双重授权) | 是 |
 | `web_param_adaptive` | 用 WAF 画像驱动 SQLi/SSTI 检测(三重授权) | 是 |
@@ -330,6 +332,27 @@ npm run bench
 请求数、单条发现成本。当前的基线是 100% / 100% / 3.5 请求一条;这只能说明
 “已知类别没退化”,不是对外产品评测。
 
+## 证据闭环
+
+所有工具的结果都走同一个入口,而不是各自为战:
+
+```powershell
+node src/cli.js ingest D:\work\lab D:\work\lab\param.json
+node src/cli.js ingest D:\work\lab D:\samples\verdex-report.json --source verdex
+node src/cli.js bundle D:\work\lab
+```
+
+`fairy_ingest` 负责:
+
+- 按 `schema` 识别 scan / param / WAF / 权限矩阵 / 可达性 / Verdex;
+- 归一成账本 asset / fact / finding;
+- 写 `source_run_id` / `source_id`,重复导入幂等;
+- WAF 只入账为事实,不硬造漏洞;
+- 每条 finding 先归到 `candidate`,再等人工转 `verified`。
+
+`fairy_report_bundle` 以账本为准,输出 `.fairy/reports/<时间>/report.{json,md,html}`,
+包含所有来源的发现、资产、事实、覆盖 runs。这样“每一发都能解释”才真正兑现。
+
 ## 报告与交付
 
 每条发现都带:**OWASP 分类、CWE、CVSS 估计、修复建议、复现步骤、`request_id`**。
@@ -371,6 +394,16 @@ node src/cli.js handoff D:\work\lab https://target.example/downloads/app.apk --c
 
 样本本身**永远不执行**;落盘后只做静态分析。`binary-artifact` 链会把它并入作战账本,
 下一步该做什么(解包、反编译、扫密钥)直接进 `fairy_chain_plan`。
+
+Verdex 分析完成后,把它的 `report.json` / `analysis.json` 传回 Fairy:
+
+```powershell
+node src/cli.js ingest D:\work\lab D:\samples\verdex-report.json --source verdex
+node src/cli.js bundle D:\work\lab
+```
+
+`fairy_ingest` 会把 Verdex 的 `file:line` 发现归一成账本 finding(来源 `verdex`),
+再去重、补 OWASP/CWE/CVSS 估计,最后进跨工具报告。样本分析不回流,证据回流。
 
 ## 授权护照
 
@@ -501,6 +534,8 @@ src/
   matrix.js      多账号 × 多端点权限矩阵(只读)
   highauth.js    最高授权文件(HMAC,仅 read-only)
   reachability.js 最高授权后的身份/权限/资产图
+  ingest.js      统一证据入口(scan/param/WAF/矩阵/可达性/Verdex)
+  evidence-report.js 以账本为准的跨工具报告
   mission.js     有边界的任务:扫描→报告→入账→链规划
   playbooks.js   web 攻击链知识库与匹配
   report.js      JSON / Markdown / 自包含 HTML
@@ -535,6 +570,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.14 work 推断:给了 context 才推断,没有就停在 needs_action
 - [x] v0.15 权限矩阵:多账号 × 多端点,识别 BFLA/IDOR 候选
 - [x] v0.16 最高授权闸:HMAC 授权 + 只读可达性图,不解锁横向执行
+- [x] v0.17 证据闭环:统一 ingest + 跨工具报告,Verdex 发现回流账本
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

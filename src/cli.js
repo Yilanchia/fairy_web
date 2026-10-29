@@ -22,6 +22,8 @@ import { autoRun } from "./auto.js";
 import { runRoleMatrix } from "./matrix.js";
 import { createHighAuth } from "./highauth.js";
 import { runReachability } from "./reachability.js";
+import { ingestFile } from "./ingest.js";
+import { writeLedgerReport } from "./evidence-report.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
 
@@ -50,6 +52,8 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js auto <project> [--max 3] [--work work.json] [--context context.json]
   node src/cli.js materialize <project> <chain_id>
   node src/cli.js worker <project> <intent_id> --action probe --url <url> [--session alice] [--a alice --b bob --marker X]
+  node src/cli.js ingest <project> <file.json> [--source verdex]
+  node src/cli.js bundle <project> [--title "..."]
   node src/cli.js disclose <project> [--include-candidates]
   node src/cli.js handoff <project> <path|url> [--confirm] [--max-bytes 20000000]
   node src/cli.js replay <project> <file.har> [--max 50] [--allow-write] [--session alice] [--replace "OLD=NEW"]
@@ -522,6 +526,14 @@ try {
         complete: !args["no-complete"],
       }),
     );
+  } else if (command === "ingest") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const file = args._[1];
+    if (!file) throw new Error("ingest 需要 JSON 文件路径");
+    print(ingestFile(project, file, { source: args.source }));
+  } else if (command === "bundle") {
+    const project = path.resolve(args._[0] || process.cwd());
+    print(writeLedgerReport(project, { title: args.title }));
   } else if (command === "disclose") {
     const project = path.resolve(args._[0] || process.cwd());
     const out = writeDisclosure(project, {

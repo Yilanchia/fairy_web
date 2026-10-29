@@ -94,6 +94,11 @@ export async function handoffFile(projectDir, file, options = {}) {
         kind === "pe"
           ? "PE 若带 CLR 元数据,.NET 程序集请改走 dotnet_decompile;不确定就先 analyze_target。"
           : "先调 analyze_target 确认类型,再按 chain 顺序执行;不要执行样本。",
+      ingest: {
+        tool: "fairy_ingest",
+        arguments: { project: projectDir, path: "<verdex 产出的 report.json 或 analysis.json>" },
+        note: "Verdex 分析完成后把 JSON 传回 Fairy,统一进账本和报告。",
+      },
     },
     note: "样本未执行。分析在 Verdex 侧进行;Fairy 只登记了资产/事实/意图。",
   };
