@@ -14,6 +14,7 @@ import { runParamProbes, runAdaptiveParamProbes } from "./probe.js";
 import { analyzeWaf } from "./waf.js";
 import { inspectDomContext } from "./domxss.js";
 import { writeDisclosure } from "./disclosure.js";
+import { runMission } from "./mission.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
 
@@ -26,6 +27,7 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js crawl  <project> <url> [--pages 40] [--depth 2]
   node src/cli.js scan   <project> <url...> [--crawl] [--pages 40] [--depth 2] [--session alice]
   node src/cli.js report <project> <url...> [--crawl] [--pages 40] [--session alice]
+  node src/cli.js mission <project> <url...> [--crawl] [--pages 40] [--session alice] [--no-report]
   node src/cli.js browser <project> <url> [--session alice] [--screenshot false] [--eval "..."] [--click "sel"] [--fill "sel=value"]
   node src/cli.js login  <project> <url> --session alice --data "username=alice&password=..."
   node src/cli.js session <project> list|show|delete|create [name] [--header "Cookie: ..."]
@@ -218,6 +220,21 @@ try {
       active: !args["no-active"],
     });
     print(result);
+  } else if (command === "mission") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const urls = args._.slice(1);
+    if (!urls.length) throw new Error("mission 需要至少一个 URL");
+    print(
+      await runMission(project, {
+        urls,
+        crawl: boolOption(args.crawl, false),
+        session: args.session || null,
+        max_pages: args.pages,
+        max_depth: args.depth,
+        headers: sessionHeaders(project, args.session, headersOf(args)),
+        report: !args["no-report"],
+      }),
+    );
   } else if (command === "report") {
     const project = path.resolve(args._[0] || process.cwd());
     const urls = args._.slice(1);

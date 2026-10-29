@@ -111,6 +111,13 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [x] 把通过验证的编码接入参数探测(仅检测探针,三重授权)
 - 验收:靶场识别 `normalization-gap`,单次编码被拦截、双重编码/HTML 实体/Unicode 通过;`web_param_adaptive` 用 double 画像命中只读 SQLi 探针,输出 `request_id` 与停止点。
 
+### v0.9 mission + 基准
+- [x] `fairy_mission`:扫描 → 报告 → 入账 → 链规划,有边界、有停止条件
+- [x] `bench/`:本地类别级基准(recall / precision / 请求成本)
+- [x] 默认不自动登录、不自动参数探测、不自动 WAF 画像
+- [ ] 把 mission 接到 planner/worker 循环(多步、跨工具、可暂停)
+- 验收:本机靶场 recall 100% / precision 100% / 3.5 请求一条;mission 产出报告、账本、next 链。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |

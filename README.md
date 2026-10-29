@@ -104,6 +104,7 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `fairy_ledger_advance` | 领取/结单意图,改发现状态 | 否 |
 | `fairy_ledger_ingest` | 把最近一次扫描报告导入账本 | 否 |
 | `fairy_chain_plan` | 按账本匹配攻击链,给最小证明与停止点 | 否 |
+| `fairy_mission` | 一次有边界的任务:扫描→报告→入账→链规划 | 是 |
 | `web_login` | 单次登录并把会话存成命名 profile(不重试/不爆破) | 是 |
 | `web_session` | 会话管理:list/show/create/delete,不回显值 | 否 |
 | `web_compare` | 双会话差分:BOLA/IDOR/BFLA 证据骨架 | 是 |
@@ -244,6 +245,27 @@ node src/cli.js param-adaptive D:\work\lab "http://127.0.0.1:8080/item?id=1" --p
 
 双重授权:scope 里 `allow_waf_probe: true`,调用时 `confirm: true`。自适应探测还要求
 `allow_active_probes: true`。少一个都拒绝。
+
+## Mission 与基准
+
+一次有边界的任务,不是“全自动打穿”:
+
+```powershell
+node src/cli.js mission D:\work\lab "http://127.0.0.1:8080/" --crawl
+```
+
+它按顺序做:扫描 → 写报告 → 入账 → 链规划,返回 `next`(可执行的下一步)。
+默认**不登录、不跑参数探测、不跑 WAF 画像**;这些主动步骤仍然要单独授权。
+
+本地基准:
+
+```powershell
+npm run bench
+```
+
+只打本机靶场,输出 `bench/results/latest.json` / `.md`:类别召回率、非预期类别、
+请求数、单条发现成本。当前的基线是 100% / 100% / 3.5 请求一条;这只能说明
+“已知类别没退化”,不是对外产品评测。
 
 ## 报告与交付
 
@@ -406,12 +428,14 @@ src/
   disclosure.js  披露文档生成
   session.js     会话保管(加密/0600/不回显)
   ledger.js      作战账本:资产/事实/发现/意图/覆盖
+  mission.js     有边界的任务:扫描→报告→入账→链规划
   playbooks.js   web 攻击链知识库与匹配
   report.js      JSON / Markdown / 自包含 HTML
   mcp.js         MCP(stdio)
   cli.js         CLI
 docs/            战略与对标
 tests/           靶场 + 测试
+bench/           本地类别级基准
 scripts/         demo 靶场、Verdex 桥、dsh 挂载
 ```
 
@@ -430,6 +454,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.6 样本交接:artifact 发现/下载/登记 + Verdex 链 + 后端预检
 - [x] v0.8 WAF 行为分析:指纹 + 编码规范化差异矩阵(只测量,不自动绕过)
 - [x] v0.8 自适应检测:用 WAF 画像的通过变体驱动 SQLi/SSTI 只读探针
+- [x] v0.9 mission:扫描→报告→入账→链规划 + 本地类别级基准
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

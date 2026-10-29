@@ -15,6 +15,7 @@ import { runParamProbes, runAdaptiveParamProbes } from "./probe.js";
 import { analyzeWaf } from "./waf.js";
 import { inspectDomContext } from "./domxss.js";
 import { writeDisclosure } from "./disclosure.js";
+import { runMission } from "./mission.js";
 import {
   loadSession,
   saveSession,
@@ -333,6 +334,37 @@ const TOOLS = [
       const report = JSON.parse(fs.readFileSync(file, "utf8"));
       const result = ingestScanReport(project, report);
       return { ok: true, report: file, ...result };
+    },
+  },
+  {
+    name: "fairy_mission",
+    description:
+      "一次有边界的任务:扫描 → 报告 → 入账 → 链规划,返回可执行的下一步。默认不登录、不跑参数探测、不跑 WAF 画像;主动步骤仍需单独授权。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "urls"],
+      properties: {
+        project: { type: "string" },
+        urls: { type: "array", items: { type: "string" } },
+        crawl: { type: "boolean" },
+        session: { type: "string" },
+        max_pages: { type: "number" },
+        max_depth: { type: "number" },
+        headers: HEADER_SCHEMA,
+        report: { type: "boolean", description: "默认 true;false 时只入账不产报告。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      return runMission(project, {
+        urls: args.urls,
+        crawl: args.crawl === true,
+        session: args.session || null,
+        max_pages: args.max_pages,
+        max_depth: args.max_depth,
+        headers: withSession(project, args.session, args.headers || {}),
+        report: args.report !== false,
+      });
     },
   },
   {

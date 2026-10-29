@@ -1,6 +1,6 @@
 {
   "name": "fairy-web",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Authorized web-pentest runtime for AI agents: scope passport, per-request audit, evidence-first reporting.",
   "type": "module",
   "license": "MIT",
@@ -29,6 +29,7 @@
   },
   "scripts": {
     "test": "node scripts/test.mjs",
+    "bench": "node bench/run.mjs",
     "scan": "node src/cli.js",
     "mcp": "node src/cli.js mcp"
   }
