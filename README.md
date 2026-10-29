@@ -112,6 +112,7 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `web_login` | 单次登录并把会话存成命名 profile(不重试/不爆破) | 是 |
 | `web_session` | 会话管理:list/show/create/delete,不回显值 | 否 |
 | `web_compare` | 双会话差分:BOLA/IDOR/BFLA 证据骨架 | 是 |
+| `web_role_matrix` | 多账号 × 多端点权限矩阵(只读 GET) | 是 |
 | `web_browser` | 无头浏览器(CDP):渲染/SPA/XHR/截图/页面动作 | 是 |
 | `web_replay` | 按 scope 重放 HAR,做状态/长度差分 | 是 |
 | `fairy_handoff` | 样本登记 + Verdex 链 + 本机后端预检 | 下载时是 |
@@ -180,6 +181,27 @@ node src/cli.js compare D:\work\lab http://127.0.0.1:8080/api/orders/2 --a bob -
 
 `web_scan` / `web_crawl` / `web_probe` / `web_report` 都接受 `--session`(MCP 里是 `session`),
 可以直接对登录后的页面/接口做只读检测。
+
+## 权限矩阵
+
+多账号 × 多端点,只发 GET,只看状态/长度/正文哈希:
+
+```powershell
+node src/cli.js matrix D:\work\lab `
+  "http://127.0.0.1:8080/account" `
+  "http://127.0.0.1:8080/admin" `
+  "http://127.0.0.1:8080/api/orders/1" `
+  --sessions alice,bob,admin
+```
+
+输出:
+
+- `role-restricted`:同一端点有的角色 2xx、有的 401/403 → BFLA 候选;
+- `data-diff`:多个账号都 2xx,但正文哈希不同 → IDOR/BOLA 候选;
+- `public` / `authenticated` / `blocked` 用于区分公开面与登录面。
+
+它只给候选,不读对象内容、不提权、不执行横向。复核时用两个真实测试账号,
+确认差异来自对象归属,不要批量拉数据。
 
 ## 浏览器运行时
 
@@ -376,6 +398,9 @@ node src/cli.js handoff D:\work\lab https://target.example/downloads/app.apk --c
 
 ## 安全边界(写死在代码里,不是口号)
 
+明确不做:**横向执行、凭据窃取、持久化、隧道、隐蔽规避、数据 dump**。
+权限矩阵只做“谁能到哪”的只读可见性;不提供拿下一台再打下一台的链路。
+
 - **不发载荷**:反射检测只放 `fairy<hex>` 这种无特殊字符标记,由人判断上下文。
 - **不爆破**:没有字典、没有并发轰炸;`rps` 与 `max_requests` 双重上限,超了直接停。
 - **不 dump**:发现敏感数据只截 240 字证据,不批量拉取、不横向。
@@ -442,6 +467,7 @@ src/
   worker.js      执行 active 意图(白名单动作 + 审批门)
   auto.js        自动循环:tick→claim→执行已声明/推断的 work
   work.js        从 chain 步骤 + context 推断只读 work
+  matrix.js      多账号 × 多端点权限矩阵(只读)
   mission.js     有边界的任务:扫描→报告→入账→链规划
   playbooks.js   web 攻击链知识库与匹配
   report.js      JSON / Markdown / 自包含 HTML
@@ -474,6 +500,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.12 planner tick:自动落单 + 选下一步 + 审批提示
 - [x] v0.13 auto loop:执行已声明 work,遇审批门/无声明即停
 - [x] v0.14 work 推断:给了 context 才推断,没有就停在 needs_action
+- [x] v0.15 权限矩阵:多账号 × 多端点,识别 BFLA/IDOR 候选
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

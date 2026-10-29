@@ -92,6 +92,18 @@ const TAXONOMY = {
     base: 8.1,
     remediation: "对象级鉴权:每次访问都校验资源归属;不要只依赖前端隐藏 id。",
   },
+  authz: {
+    owasp: "A01:2021 Broken Access Control",
+    cwe: "CWE-862 / CWE-863",
+    base: 8.1,
+    remediation: "服务端按角色/租户强制鉴权;默认拒绝;为每个端点补权限矩阵测试。",
+  },
+  "data-diff": {
+    owasp: "A01:2021 Broken Access Control",
+    cwe: "CWE-639",
+    base: 7.5,
+    remediation: "确认响应差异来自对象归属;对象级鉴权必须在服务端完成。",
+  },
   ssrf: {
     owasp: "A10:2021 Server-Side Request Forgery",
     cwe: "CWE-918",

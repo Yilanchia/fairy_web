@@ -43,6 +43,7 @@ import { planChains } from "./playbooks.js";
 import { materializeChain, plannerTick } from "./planner.js";
 import { runWorkerAction } from "./worker.js";
 import { autoRun } from "./auto.js";
+import { runRoleMatrix } from "./matrix.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = { name: "fairy", version: "0.1.0" };
@@ -723,6 +724,37 @@ const TOOLS = [
           confirm: args.confirm === true,
           headers: withSession(project, args.session, args.headers || {}),
           maxProbes: args.max_probes,
+        });
+      } finally {
+        guard.close();
+      }
+    },
+  },
+  {
+    name: "web_role_matrix",
+    description:
+      "权限矩阵:多账号 × 多端点只读 GET,比较状态/长度/正文哈希,标记角色差异与登录态差异。不读对象内容、不横向、不提权。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "urls"],
+      properties: {
+        project: { type: "string" },
+        urls: { type: "array", items: { type: "string" } },
+        sessions: { type: "array", items: { type: "string" }, description: "会话名;省略时用项目里全部会话。" },
+        include_anonymous: { type: "boolean", description: "默认 true。" },
+        headers: HEADER_SCHEMA,
+        max_urls: { type: "number", description: "默认 20,上限 50。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const guard = new Guard(project);
+      try {
+        return await runRoleMatrix(guard, {
+          urls: args.urls,
+          sessions: args.sessions,
+          includeAnonymous: args.include_anonymous !== false,
+          headers: withSession(project, null, args.headers || {}),
         });
       } finally {
         guard.close();

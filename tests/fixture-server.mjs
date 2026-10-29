@@ -250,6 +250,10 @@ export function startLab() {
       return;
     }
     if (path === "/admin") {
+      if (cookieValue(req, "sid") === "admin") {
+        html("Admin", "<div>admin area</div>");
+        return;
+      }
       res.writeHead(403, { "content-type": "text/html" });
       res.end("<html>forbidden</html>");
       return;

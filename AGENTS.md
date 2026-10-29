@@ -13,6 +13,8 @@
   `done`;`requires_approval` 的步骤不批准不会被领取。
 - **worker**:`fairy_worker_run` 只执行 active 且已审批的意图,动作白名单
   `probe/compare/browser/param/param_adaptive`;结果写回并结单。
+- **权限矩阵**:`web_role_matrix` 多账号 × 多端点只读 GET,标 BFLA/IDOR 候选;
+  不读对象内容、不提权、不横向。
 - **自动循环**:`fairy_auto_run` 执行落单时声明好的 `work`;也可以给 `context`
   让 planner 从链步骤推断只读 work(没有 context 不猜)。需要审批就停(`approve`),
   不自动批准。
@@ -37,4 +39,5 @@
 - 样本只登记、只静态分析,**不执行**、不联网回连、不上传第三方。
 - 默认只读方法;登录/重放写方法必须 scope 显式授权。
 - 发现敏感数据即停,不 dump、不横向、不 hack-back。
+- 不提供横向执行、凭据窃取、持久化、隧道、隐蔽规避;权限矩阵只做只读可见性。
 - 报告里 CVSS 是估计值,候选不等于已验证。

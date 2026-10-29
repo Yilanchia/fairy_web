@@ -156,6 +156,14 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] 更多链的动作映射与参数模板
 - 验收:给 `base_url` 自动推断 git 链 step1 probe 并执行;不给 context 停在 needs_action。
 
+### v0.15 权限矩阵
+- [x] `web_role_matrix`:多账号 × 多端点只读 GET
+- [x] 角色差异(BFLA)与登录态正文差异(IDOR/BOLA)候选
+- [x] 只回状态/长度/哈希,不读对象内容
+- [x] 明确不做横向执行、凭据窃取、提权
+- [ ] 角色/租户矩阵自动发现与 API schema 驱动
+- 验收:admin 200 / alice 403 被标 role-restricted;多账号正文哈希不同被标 data-diff。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |
