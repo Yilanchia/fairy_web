@@ -32,6 +32,7 @@ import {
   addFinding,
   addIntent,
   claimNextIntent,
+  approveIntent,
   completeIntent,
   updateFinding,
   summary as ledgerSummary,
@@ -39,6 +40,7 @@ import {
   sortFindings,
 } from "./ledger.js";
 import { planChains } from "./playbooks.js";
+import { materializeChain } from "./planner.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
 const SERVER_INFO = { name: "fairy", version: "0.1.0" };
@@ -201,13 +203,13 @@ const TOOLS = [
   {
     name: "fairy_ledger_advance",
     description:
-      "推进账本。action=claim 领取下一条依赖已满足的意图;done/blocked/skipped 结单(需 intent_id,note 可写结论);finding-status 改发现状态(需 finding_id,status=candidate/verified/false-positive/remediated/accepted-risk,patch 可带 impact/remediation/cvss/owasp)。",
+      "推进账本。action=claim 领取下一条依赖已满足的意图;approve 批准 requires_approval 的意图;done/blocked/skipped 结单(需 intent_id,note 可写结论);finding-status 改发现状态(需 finding_id,status=candidate/verified/false-positive/remediated/accepted-risk,patch 可带 impact/remediation/cvss/owasp)。",
     inputSchema: {
       type: "object",
       required: ["project", "action"],
       properties: {
         project: { type: "string" },
-        action: { type: "string", enum: ["claim", "done", "blocked", "skipped", "finding-status"] },
+        action: { type: "string", enum: ["claim", "approve", "done", "blocked", "skipped", "finding-status"] },
         intent_id: { type: "string" },
         finding_id: { type: "string" },
         status: { type: "string" },
@@ -222,6 +224,10 @@ const TOOLS = [
         if (action === "claim") {
           const intent = claimNextIntent(ledger);
           return intent || { none: true, reason: "没有依赖已满足的 todo 意图" };
+        }
+        if (action === "approve") {
+          if (!args.intent_id) throw new Error("需要 intent_id");
+          return approveIntent(ledger, args.intent_id);
         }
         if (["done", "blocked", "skipped"].includes(action)) {
           if (!args.intent_id) throw new Error("需要 intent_id");
@@ -304,6 +310,26 @@ const TOOLS = [
         blocked: chains.filter((c) => c.readiness === "blocked").length,
         chains,
       };
+    },
+  },
+  {
+    name: "fairy_chain_materialize",
+    description:
+      "把一条 ready 攻击链落成有依赖的意图序列(步骤 1 → 2 → 3)。worker 只领取依赖已满足的下一步;重复调用幂等。blocked 链会被拒绝。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "chain_id"],
+      properties: {
+        project: { type: "string" },
+        chain_id: { type: "string", description: "fairy_chain_plan 返回的 chain id。" },
+        asset_ids: { type: "array", items: { type: "string" }, description: "可选:把意图锚定到账本资产。" },
+      },
+    },
+    run: async (args) => {
+      const result = materializeChain(projectOf(args), args.chain_id, {
+        asset_ids: args.asset_ids || [],
+      });
+      return { ok: true, ...result };
     },
   },
   {
@@ -887,6 +913,7 @@ const CLOSED_WORLD = new Set([
   "fairy_ledger_advance",
   "fairy_chain_plan",
   "fairy_ledger_ingest",
+  "fairy_chain_materialize",
   "web_session",
   "fairy_disclose",
 ]);

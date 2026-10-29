@@ -196,7 +196,15 @@ export function addIntent(ledger, input = {}) {
     asset_ids: assetIds,
     risk: RISKS.has(input.risk) ? input.risk : "low",
     requires_approval: input.requires_approval === true,
+    approved: input.approved === true,
     stop_condition: input.stop_condition ? String(input.stop_condition).slice(0, 400) : "",
+    chain_id: input.chain_id ? String(input.chain_id) : null,
+    step_index:
+      input.step_index === undefined
+        ? null
+        : Number.isInteger(Number(input.step_index))
+          ? Number(input.step_index)
+          : null,
     result: "",
     created_at: nowIso(),
     started_at: null,
@@ -210,13 +218,25 @@ export function addIntent(ledger, input = {}) {
 export function claimNextIntent(ledger) {
   const done = new Set(ledger.intents.filter((i) => i.status === "done" || i.status === "skipped").map((i) => i.id));
   const next = ledger.intents.find(
-    (i) => i.status === "todo" && (i.depends_on || []).every((dep) => done.has(dep)),
+    (i) =>
+      i.status === "todo" &&
+      (i.depends_on || []).every((dep) => done.has(dep)) &&
+      (!i.requires_approval || i.approved),
   );
   if (!next) return null;
   next.status = "active";
   next.started_at = nowIso();
   ledger.log.push({ ts: nowIso(), action: "intent.claim", id: next.id });
   return next;
+}
+
+export function approveIntent(ledger, intentId) {
+  const intent = ledger.intents.find((item) => item.id === intentId);
+  if (!intent) throw new Error(`intent 不存在:${intentId}`);
+  if (!intent.requires_approval) throw new Error(`intent ${intentId} 不需要审批`);
+  intent.approved = true;
+  ledger.log.push({ ts: nowIso(), action: "intent.approve", id: intentId });
+  return intent;
 }
 
 export function completeIntent(ledger, intentId, options = {}) {
@@ -268,7 +288,12 @@ export function summary(ledger) {
   const intentsByStatus = {};
   for (const intent of ledger.intents) intentsByStatus[intent.status] = (intentsByStatus[intent.status] || 0) + 1;
   const doneIds = new Set(ledger.intents.filter((i) => i.status === "done" || i.status === "skipped").map((i) => i.id));
-  const next = ledger.intents.find((i) => i.status === "todo" && (i.depends_on || []).every((d) => doneIds.has(d)));
+  const next = ledger.intents.find(
+    (i) =>
+      i.status === "todo" &&
+      (i.depends_on || []).every((d) => doneIds.has(d)) &&
+      (!i.requires_approval || i.approved),
+  );
 
   return {
     schema: ledger.schema,

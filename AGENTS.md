@@ -9,6 +9,8 @@
   `web_login` / `web_compare` / `web_report`。
 - **一次有边界的任务**:`fairy_mission`(扫描→报告→入账→链规划);默认不登录、
   不跑参数探测、不跑 WAF 画像。
+- **计划/执行**:`fairy_chain_plan` → `fairy_chain_materialize` → `claim` / `approve` /
+  `done`;`requires_approval` 的步骤不批准不会被领取。
 - **本地二进制 / APK / 固件 / 样本**:先 `fairy_handoff` 登记并拿链,再调
   `mcp__verdex__analyze_target`,按 `preflight` 跳过缺失后端的步骤。
 - **web 上发现的样本链接**:`web_scan` 会列进 `attack_surface.artifacts`;

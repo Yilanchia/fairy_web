@@ -104,6 +104,7 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `fairy_ledger_advance` | 领取/结单意图,改发现状态 | 否 |
 | `fairy_ledger_ingest` | 把最近一次扫描报告导入账本 | 否 |
 | `fairy_chain_plan` | 按账本匹配攻击链,给最小证明与停止点 | 否 |
+| `fairy_chain_materialize` | 把 ready 链落成有依赖的意图序列(幂等) | 否 |
 | `fairy_mission` | 一次有边界的任务:扫描→报告→入账→链规划 | 是 |
 | `web_login` | 单次登录并把会话存成命名 profile(不重试/不爆破) | 是 |
 | `web_session` | 会话管理:list/show/create/delete,不回显值 | 否 |
@@ -136,8 +137,9 @@ fairy_ledger_init(project)
 web_report(project, urls, crawl=true)
 fairy_ledger_ingest(project)            # 资产/技术栈/候选发现入账
 fairy_chain_plan(project)               # ready 的链 + 每步证明 + 停止点
-fairy_ledger_add(kind="fact", data={statement:"已准备测试账号 A/B", tags:["accounts"]})
+fairy_chain_materialize(project, "cors-credential-read")  # 落成有依赖的意图
 fairy_ledger_advance(action="claim")    # 领取下一步意图
+fairy_ledger_advance(action="approve", intent_id="I-002") # requires_approval 的步骤
 fairy_ledger_advance(action="done", intent_id="I-001", note="...")
 ```
 
@@ -428,6 +430,7 @@ src/
   disclosure.js  披露文档生成
   session.js     会话保管(加密/0600/不回显)
   ledger.js      作战账本:资产/事实/发现/意图/覆盖
+  planner.js     把 ready 链落成有依赖的意图序列
   mission.js     有边界的任务:扫描→报告→入账→链规划
   playbooks.js   web 攻击链知识库与匹配
   report.js      JSON / Markdown / 自包含 HTML
@@ -455,6 +458,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.8 WAF 行为分析:指纹 + 编码规范化差异矩阵(只测量,不自动绕过)
 - [x] v0.8 自适应检测:用 WAF 画像的通过变体驱动 SQLi/SSTI 只读探针
 - [x] v0.9 mission:扫描→报告→入账→链规划 + 本地类别级基准
+- [x] v0.10 planner/worker:链落单 → 依赖领取 → 审批门 → 结单
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

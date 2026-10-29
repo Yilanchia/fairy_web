@@ -15,6 +15,7 @@ import { analyzeWaf } from "./waf.js";
 import { inspectDomContext } from "./domxss.js";
 import { writeDisclosure } from "./disclosure.js";
 import { runMission } from "./mission.js";
+import { materializeChain } from "./planner.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
 
@@ -36,6 +37,7 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js waf    <project> <url> --param q --confirm [--session alice]
   node src/cli.js param  <project> <url...> --confirm [--classes sqli,ssti] [--max-params 20] [--session alice]
   node src/cli.js param-adaptive <project> <url> --param q --confirm [--classes sqli,ssti] [--session alice]
+  node src/cli.js materialize <project> <chain_id>
   node src/cli.js disclose <project> [--include-candidates]
   node src/cli.js handoff <project> <path|url> [--confirm] [--max-bytes 20000000]
   node src/cli.js replay <project> <file.har> [--max 50] [--allow-write] [--session alice] [--replace "OLD=NEW"]
@@ -415,6 +417,11 @@ try {
     } finally {
       guard.close();
     }
+  } else if (command === "materialize") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const chainId = args._[1];
+    if (!chainId) throw new Error("materialize 需要 chain_id(先跑 chain plan)");
+    print({ ok: true, ...materializeChain(project, chainId) });
   } else if (command === "disclose") {
     const project = path.resolve(args._[0] || process.cwd());
     const out = writeDisclosure(project, {

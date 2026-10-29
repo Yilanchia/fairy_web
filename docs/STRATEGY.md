@@ -118,6 +118,14 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] 把 mission 接到 planner/worker 循环(多步、跨工具、可暂停)
 - 验收:本机靶场 recall 100% / precision 100% / 3.5 请求一条;mission 产出报告、账本、next 链。
 
+### v0.10 planner / worker
+- [x] `fairy_chain_materialize`:ready 链 → 有依赖的意图序列,幂等
+- [x] `claim` 只领取依赖已满足的下一步
+- [x] `requires_approval` 审批门:不批准不会被领取
+- [x] `approve` / `done` / `blocked` 状态机
+- [ ] 自动 worker(执行步骤)与跨轮 planner
+- 验收:落单 3 步链,claim 第一步;完成后第二步因审批门不可领取,approve 后可领取。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |

@@ -13,6 +13,7 @@ import {
   addFinding,
   addIntent,
   claimNextIntent,
+  approveIntent,
   completeIntent,
   summary,
   ingestScanReport,
@@ -79,6 +80,8 @@ test("意图依赖:只领取前置已完成的下一步", () => {
   assert.equal(claimNextIntent(ledger), null, "I-002 的前置未完成,不应被领取");
 
   completeIntent(ledger, i1.id, { status: "done", note: "找到 /login" });
+  assert.equal(claimNextIntent(ledger), null, "requires_approval 未批准时不应被领取");
+  approveIntent(ledger, i2.id);
   const second = claimNextIntent(ledger);
   assert.equal(second.id, i2.id);
 
