@@ -202,6 +202,22 @@ export function startLab() {
       res.end(body);
       return;
     }
+    if (path === "/waf") {
+      const raw = req.url || "";
+      let decoded = raw;
+      try {
+        decoded = decodeURIComponent(raw);
+      } catch {
+        decoded = raw;
+      }
+      if (/[<>']|\.\.\/|\{\{/.test(decoded)) {
+        res.writeHead(403, { "content-type": "text/html", server: "FairyWAF/1.0" });
+        res.end("<html><body>Web Application Firewall: request blocked</body></html>");
+        return;
+      }
+      html("WAF", "<div>ok</div>", { server: "FairyWAF/1.0" });
+      return;
+    }
     if (path === "/admin") {
       res.writeHead(403, { "content-type": "text/html" });
       res.end("<html>forbidden</html>");

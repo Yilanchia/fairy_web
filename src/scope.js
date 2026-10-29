@@ -18,6 +18,7 @@ export const DEFAULT_LIMITS = {
   verify_tls: true,
   allow_private: false,
   allow_active_probes: false,
+  allow_waf_probe: false,
   methods: ["GET", "HEAD", "OPTIONS"],
 };
 
@@ -157,6 +158,7 @@ export function normalizeScope(raw) {
         ? normalizedInclude.some(isPrivatePattern)
         : inputLimits.allow_private === true,
     allow_active_probes: inputLimits.allow_active_probes === true,
+    allow_waf_probe: inputLimits.allow_waf_probe === true,
     methods: DEFAULT_LIMITS.methods.slice(),
   };
 

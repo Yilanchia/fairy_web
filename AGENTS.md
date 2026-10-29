@@ -13,6 +13,8 @@
   下载走 `fairy_handoff(url, confirm=true)`,不要用普通爬虫硬拉。
 - **参数级探测**:`web_param`(SQLi/SSTI),必须 scope `allow_active_probes=true` 且
   `confirm=true`;只判存在,不取数据。DOM 上下文用 `web_dom_context`。
+- **WAF 行为**:`web_waf`,必须 scope `allow_waf_probe=true` 且 `confirm=true`;
+  只测指纹与编码规范化差异,不自动绕过、不套真实载荷。
 - **披露**:`fairy_disclose` 只收 verified 发现;先 `fairy_ledger_advance(finding-status)`。
 - **HAR / 抓包**:`har_ingest` 静态看;需要"现在还是不是这样"用 `web_replay`。
 - **采集 → 静态复核**:`web_report` 产出的 `traffic.har` 交给

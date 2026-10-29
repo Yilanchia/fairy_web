@@ -111,6 +111,7 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `web_replay` | 按 scope 重放 HAR,做状态/长度差分 | 是 |
 | `fairy_handoff` | 样本登记 + Verdex 链 + 本机后端预检 | 下载时是 |
 | `web_param` | 参数级探测:SQLi 错误/布尔、SSTI(需双重授权) | 是 |
+| `web_waf` | WAF 指纹 + 编码规范化差异矩阵(需双重授权) | 是 |
 | `web_dom_context` | DOM 反射上下文判定(script/属性/文本) | 是 |
 | `fairy_disclose` | 从账本生成披露文档(只取 verified) | 否 |
 
@@ -214,6 +215,25 @@ node src/cli.js dom   D:\work\lab "http://127.0.0.1:8080/search?q=x" --param q
 - **DOM 上下文**:构造 `fairy<hex>` 标记,用浏览器看它落在 `<script>`、事件属性、普通属性、文本还是注释,顺带读 CSP。只判定,不生成载荷。
 - 每类证到即停;发现带 `request_id`,布尔差分注明可能被动态页面干扰。
 
+## WAF 行为分析
+
+这是**测量**,不是一键绕过。
+
+```powershell
+node src/cli.js init D:\work\lab --include "127.0.0.1" --basis "自建靶场" --allow-waf-probe true
+node src/cli.js waf D:\work\lab "http://127.0.0.1:8080/item?id=1" --param id --confirm
+```
+
+它做三件事:
+
+1. 从响应头 / Cookie / 拦截页识别常见 WAF(Cloudflare、Akamai、Imperva、F5、Sucuri、FortiWeb、ModSecurity、阿里云、腾讯云、雷池、安全狗等)。
+2. 用带标记的四种语法形状(HTML 标签、单引号、路径穿越、模板表达式)测拦截。
+3. 对每种形状做单次 URL 编码、双重编码、HTML 实体、JS Unicode 四组变体,输出"哪些变体到达了后端"的矩阵。
+
+`verdict=normalization-gap` 只说明 WAF 与后端解码不一致,不等于可以绕过。它不会把真实攻击载荷套进变体,也不会自动继续打。要验证,由人在授权范围内完成。
+
+双重授权:scope 里 `allow_waf_probe: true`,调用时 `confirm: true`。少一个都拒绝。
+
 ## 报告与交付
 
 每条发现都带:**OWASP 分类、CWE、CVSS 估计、修复建议、复现步骤、`request_id`**。
@@ -276,6 +296,7 @@ node src/cli.js handoff D:\work\lab https://target.example/downloads/app.apk --c
     "timeout_ms": 10000,
     "allow_private": true,
     "allow_active_probes": false,
+    "allow_waf_probe": false,
     "verify_tls": true,
     "methods": ["GET", "HEAD", "OPTIONS"]
   }
@@ -369,6 +390,7 @@ src/
   artifacts.js   样本类型识别 + Verdex 链/后端预检
   handoff.js     样本登记、下载、交接给 Verdex
   probe.js       参数级探测(SQLi/SSTI,只判存在)
+  waf.js         WAF 指纹 + 编码规范化差异矩阵
   domxss.js      DOM 反射上下文判定
   disclosure.js  披露文档生成
   session.js     会话保管(加密/0600/不回显)
@@ -395,6 +417,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.5 披露文档:只取 verified,不带证据正文
 - [ ] v0.5 交互审批门(高风险步骤暂停等确认)
 - [x] v0.6 样本交接:artifact 发现/下载/登记 + Verdex 链 + 后端预检
+- [x] v0.8 WAF 行为分析:指纹 + 编码规范化差异矩阵(只测量,不自动绕过)
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

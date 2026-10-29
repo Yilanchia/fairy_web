@@ -12,6 +12,7 @@ import { browse } from "./browser.js";
 import { replayHar } from "./replay.js";
 import { handoffFile, fetchArtifact, suggestUrl } from "./handoff.js";
 import { runParamProbes } from "./probe.js";
+import { analyzeWaf } from "./waf.js";
 import { inspectDomContext } from "./domxss.js";
 import { writeDisclosure } from "./disclosure.js";
 import {
@@ -55,6 +56,7 @@ const LIMITS_SCHEMA = {
     max_active_pages: { type: "number" },
     allow_private: { type: "boolean" },
     allow_active_probes: { type: "boolean" },
+    allow_waf_probe: { type: "boolean" },
     verify_tls: { type: "boolean" },
     methods: { type: "array", items: { type: "string" } },
   },
@@ -519,6 +521,39 @@ const TOOLS = [
           sessionHeaders: session ? session.headers : null,
           waitMs: args.wait_ms,
           screenshot: args.screenshot === true,
+        });
+      } finally {
+        guard.close();
+      }
+    },
+  },
+  {
+    name: "web_waf",
+    description:
+      "WAF 行为分析:指纹识别、拦截状态、单/双 URL 编码、HTML 实体、JS Unicode 的规范化差异。需要 scope.limits.allow_waf_probe=true 且 confirm=true。只发带标记的语法形状,不生成利用载荷,不自动绕过。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "url", "param", "confirm"],
+      properties: {
+        project: { type: "string" },
+        url: { type: "string" },
+        param: { type: "string", description: "要分析的查询参数名。" },
+        confirm: { type: "boolean", description: "必须 true:会发少量带标记的请求。" },
+        session: { type: "string" },
+        headers: HEADER_SCHEMA,
+        max_probes: { type: "number", description: "最多探测数,默认 24,上限 60。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const guard = new Guard(project);
+      try {
+        return await analyzeWaf(guard, {
+          url: args.url,
+          param: args.param,
+          confirm: args.confirm === true,
+          headers: withSession(project, args.session, args.headers || {}),
+          maxProbes: args.max_probes,
         });
       } finally {
         guard.close();

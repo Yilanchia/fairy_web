@@ -11,6 +11,7 @@ import { browse } from "./browser.js";
 import { replayHar } from "./replay.js";
 import { handoffFile, fetchArtifact } from "./handoff.js";
 import { runParamProbes } from "./probe.js";
+import { analyzeWaf } from "./waf.js";
 import { inspectDomContext } from "./domxss.js";
 import { writeDisclosure } from "./disclosure.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
@@ -30,6 +31,7 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js session <project> list|show|delete|create [name] [--header "Cookie: ..."]
   node src/cli.js compare <project> <url> --a alice --b bob [--marker "ALICE-ORDER-1"]
   node src/cli.js dom    <project> <url> --param q [--session alice]
+  node src/cli.js waf    <project> <url> --param q --confirm [--session alice]
   node src/cli.js param  <project> <url...> --confirm [--classes sqli,ssti] [--max-params 20] [--session alice]
   node src/cli.js disclose <project> [--include-candidates]
   node src/cli.js handoff <project> <path|url> [--confirm] [--max-bytes 20000000]
@@ -116,6 +118,9 @@ try {
     if (args["allow-private"] !== undefined) limits.allow_private = boolOption(args["allow-private"]);
     if (args["allow-active-probes"] !== undefined) {
       limits.allow_active_probes = boolOption(args["allow-active-probes"]);
+    }
+    if (args["allow-waf-probe"] !== undefined) {
+      limits.allow_waf_probe = boolOption(args["allow-waf-probe"]);
     }
     const saved = saveScope(project, {
       schema: "FairyScope/v1",
@@ -332,6 +337,24 @@ try {
           sessionHeaders: session ? session.headers : null,
           waitMs: args["wait-ms"],
           screenshot: boolOption(args.screenshot, false),
+        }),
+      );
+    } finally {
+      guard.close();
+    }
+  } else if (command === "waf") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const url = args._[1];
+    if (!url || !args.param) throw new Error('waf 需要 URL 与 --param <参数名>');
+    const guard = new Guard(project);
+    try {
+      print(
+        await analyzeWaf(guard, {
+          url,
+          param: args.param,
+          confirm: boolOption(args.confirm, false),
+          headers: sessionHeaders(project, args.session, headersOf(args)),
+          maxProbes: args["max-probes"],
         }),
       );
     } finally {
