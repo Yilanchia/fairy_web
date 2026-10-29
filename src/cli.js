@@ -10,7 +10,7 @@ import { login, compare } from "./auth.js";
 import { browse } from "./browser.js";
 import { replayHar } from "./replay.js";
 import { handoffFile, fetchArtifact } from "./handoff.js";
-import { runParamProbes } from "./probe.js";
+import { runParamProbes, runAdaptiveParamProbes } from "./probe.js";
 import { analyzeWaf } from "./waf.js";
 import { inspectDomContext } from "./domxss.js";
 import { writeDisclosure } from "./disclosure.js";
@@ -33,6 +33,7 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js dom    <project> <url> --param q [--session alice]
   node src/cli.js waf    <project> <url> --param q --confirm [--session alice]
   node src/cli.js param  <project> <url...> --confirm [--classes sqli,ssti] [--max-params 20] [--session alice]
+  node src/cli.js param-adaptive <project> <url> --param q --confirm [--classes sqli,ssti] [--session alice]
   node src/cli.js disclose <project> [--include-candidates]
   node src/cli.js handoff <project> <path|url> [--confirm] [--max-bytes 20000000]
   node src/cli.js replay <project> <file.har> [--max 50] [--allow-write] [--session alice] [--replace "OLD=NEW"]
@@ -337,6 +338,25 @@ try {
           sessionHeaders: session ? session.headers : null,
           waitMs: args["wait-ms"],
           screenshot: boolOption(args.screenshot, false),
+        }),
+      );
+    } finally {
+      guard.close();
+    }
+  } else if (command === "param-adaptive") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const url = args._[1];
+    if (!url || !args.param) throw new Error("param-adaptive 需要 URL 与 --param <参数名>");
+    const guard = new Guard(project);
+    try {
+      print(
+        await runAdaptiveParamProbes(guard, {
+          url,
+          param: args.param,
+          confirm: boolOption(args.confirm, false),
+          classes: args.classes ? String(args.classes).split(",") : undefined,
+          headers: sessionHeaders(project, args.session, headersOf(args)),
+          maxTransforms: args["max-transforms"],
         }),
       );
     } finally {

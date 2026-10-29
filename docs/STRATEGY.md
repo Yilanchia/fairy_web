@@ -108,8 +108,8 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [x] 四种语法形状 × 四种编码变体的拦截矩阵
 - [x] 双重授权:scope `allow_waf_probe=true` + 调用 `confirm=true`
 - [x] 只测量规范化差异,不自动绕过、不套真实攻击载荷
-- [ ] 把通过验证的编码接入参数探测(需要单独的授权模式与验证)
-- 验收:靶场识别 `normalization-gap`,单次编码被拦截、双重编码/HTML 实体/Unicode 通过,输出 `request_id` 与停止点。
+- [x] 把通过验证的编码接入参数探测(仅检测探针,三重授权)
+- 验收:靶场识别 `normalization-gap`,单次编码被拦截、双重编码/HTML 实体/Unicode 通过;`web_param_adaptive` 用 double 画像命中只读 SQLi 探针,输出 `request_id` 与停止点。
 
 ## 6. 质量指标(比"扫了多少"更重要)
 

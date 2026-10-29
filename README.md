@@ -112,6 +112,7 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `fairy_handoff` | 样本登记 + Verdex 链 + 本机后端预检 | 下载时是 |
 | `web_param` | 参数级探测:SQLi 错误/布尔、SSTI(需双重授权) | 是 |
 | `web_waf` | WAF 指纹 + 编码规范化差异矩阵(需双重授权) | 是 |
+| `web_param_adaptive` | 用 WAF 画像驱动 SQLi/SSTI 检测(三重授权) | 是 |
 | `web_dom_context` | DOM 反射上下文判定(script/属性/文本) | 是 |
 | `fairy_disclose` | 从账本生成披露文档(只取 verified) | 否 |
 
@@ -232,7 +233,17 @@ node src/cli.js waf D:\work\lab "http://127.0.0.1:8080/item?id=1" --param id --c
 
 `verdict=normalization-gap` 只说明 WAF 与后端解码不一致,不等于可以绕过。它不会把真实攻击载荷套进变体,也不会自动继续打。要验证,由人在授权范围内完成。
 
-双重授权:scope 里 `allow_waf_probe: true`,调用时 `confirm: true`。少一个都拒绝。
+`web_waf` 会把画像写到 `.fairy/waf/profile.json`。需要把通过项用于检测时:
+
+```powershell
+node src/cli.js param-adaptive D:\work\lab "http://127.0.0.1:8080/item?id=1" --param id --confirm
+```
+
+`web_param_adaptive` 读取画像里的推荐变体,只把它们套到 SQLi/SSTI 的**存在性探针**上,
+例如双重编码的单引号、布尔表达式、`{{7*7}}`。它不会套真实攻击载荷,也不取数据。
+
+双重授权:scope 里 `allow_waf_probe: true`,调用时 `confirm: true`。自适应探测还要求
+`allow_active_probes: true`。少一个都拒绝。
 
 ## 报告与交付
 
@@ -418,6 +429,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [ ] v0.5 交互审批门(高风险步骤暂停等确认)
 - [x] v0.6 样本交接:artifact 发现/下载/登记 + Verdex 链 + 后端预检
 - [x] v0.8 WAF 行为分析:指纹 + 编码规范化差异矩阵(只测量,不自动绕过)
+- [x] v0.8 自适应检测:用 WAF 画像的通过变体驱动 SQLi/SSTI 只读探针
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

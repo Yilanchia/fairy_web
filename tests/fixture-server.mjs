@@ -218,6 +218,32 @@ export function startLab() {
       html("WAF", "<div>ok</div>", { server: "FairyWAF/1.0" });
       return;
     }
+    if (path === "/waf-sqli") {
+      let decoded = req.url || "";
+      try {
+        decoded = decodeURIComponent(decoded);
+      } catch {
+        decoded = req.url || "";
+      }
+      if (/[<>']|\.\.\/|\{\{/.test(decoded)) {
+        res.writeHead(403, { "content-type": "text/html", server: "FairyWAF/1.0" });
+        res.end("<html><body>Web Application Firewall: request blocked</body></html>");
+        return;
+      }
+      let q = url.searchParams.get("q") || "";
+      try {
+        q = decodeURIComponent(q);
+      } catch {
+        // keep raw
+      }
+      if (q.includes("'")) {
+        res.writeHead(500, { "content-type": "text/html" });
+        res.end("<html><body>You have an error in your SQL syntax near input</body></html>");
+        return;
+      }
+      html("WAF SQLi", "<div>ok</div>", { server: "FairyWAF/1.0" });
+      return;
+    }
     if (path === "/admin") {
       res.writeHead(403, { "content-type": "text/html" });
       res.end("<html>forbidden</html>");

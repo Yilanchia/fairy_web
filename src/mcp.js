@@ -11,7 +11,7 @@ import { login, compare } from "./auth.js";
 import { browse } from "./browser.js";
 import { replayHar } from "./replay.js";
 import { handoffFile, fetchArtifact, suggestUrl } from "./handoff.js";
-import { runParamProbes } from "./probe.js";
+import { runParamProbes, runAdaptiveParamProbes } from "./probe.js";
 import { analyzeWaf } from "./waf.js";
 import { inspectDomContext } from "./domxss.js";
 import { writeDisclosure } from "./disclosure.js";
@@ -587,6 +587,41 @@ const TOOLS = [
           classes: args.classes,
           headers: withSession(project, args.session, args.headers || {}),
           maxParams: args.max_params,
+        });
+      } finally {
+        guard.close();
+      }
+    },
+  },
+  {
+    name: "web_param_adaptive",
+    description:
+      "用 web_waf 生成的 WAF 画像,把通过验证的编码变体应用到 SQLi/SSTI 检测探针。需要 allow_active_probes + allow_waf_probe + confirm;只判存在,不取数据,不套真实攻击载荷。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "url", "param", "confirm"],
+      properties: {
+        project: { type: "string" },
+        url: { type: "string" },
+        param: { type: "string", description: "要探测的查询参数名(需与 web_waf 画像一致)。" },
+        confirm: { type: "boolean" },
+        classes: { type: "array", items: { type: "string", enum: ["sqli", "ssti"] } },
+        session: { type: "string" },
+        headers: HEADER_SCHEMA,
+        max_transforms: { type: "number", description: "最多尝试多少个编码变体,默认 3。" },
+      },
+    },
+    run: async (args) => {
+      const project = projectOf(args);
+      const guard = new Guard(project);
+      try {
+        return await runAdaptiveParamProbes(guard, {
+          url: args.url,
+          param: args.param,
+          confirm: args.confirm === true,
+          classes: args.classes,
+          headers: withSession(project, args.session, args.headers || {}),
+          maxTransforms: args.max_transforms,
         });
       } finally {
         guard.close();

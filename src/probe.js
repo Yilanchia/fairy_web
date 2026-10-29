@@ -1,6 +1,7 @@
 import { URL } from "node:url";
 import { nowIso, redactUrl, severityRank, snippetAround, truncate } from "./util.js";
 import { enrichFindings } from "./taxonomy.js";
+import { applyTransform, loadWafProfile, TRANSFORM_IDS } from "./waf.js";
 
 // 参数级主动探测:只判"存在",不取数据。
 // 手法限定为:错误签名、布尔差分、模板求值。不做 UNION、堆叠、盲注、命令执行。
@@ -56,6 +57,11 @@ function withParam(href, name, value) {
   return url.href;
 }
 
+function whereFor(target, name, transform) {
+  const suffix = transform && transform !== "single" ? `, transform: ${transform}` : "";
+  return `GET ${redactUrl(target)} (param: ${name}${suffix})`;
+}
+
 export async function runParamProbes(guard, options = {}) {
   if (guard.limits.allow_active_probes !== true) {
     throw new Error(
@@ -73,6 +79,17 @@ export async function runParamProbes(guard, options = {}) {
   );
   const classes = requested.filter((value) => SUPPORTED.has(value));
   if (!classes.length) throw new Error(`classes 只支持:${[...SUPPORTED].join("/")}`);
+
+  const requestedTransforms = Array.isArray(options.transforms) && options.transforms.length
+    ? options.transforms
+    : ["single"];
+  const transforms = [...new Set(requestedTransforms.map((value) => String(value)))];
+  for (const transform of transforms) {
+    if (!TRANSFORM_IDS.includes(transform)) throw new Error(`未知编码变体:${transform}(支持:${TRANSFORM_IDS.join("/")})`);
+  }
+  if (transforms.some((transform) => transform !== "single") && guard.limits.allow_waf_probe !== true) {
+    throw new Error("使用编码变体探测需要 scope.limits.allow_waf_probe=true;先跑 web_waf 并显式授权。");
+  }
 
   const headers = options.headers || {};
   const maxParams = Math.min(Math.max(Number(options.maxParams) || 20, 1), 100);
@@ -103,7 +120,9 @@ export async function runParamProbes(guard, options = {}) {
     } catch {
       continue;
     }
-    const names = [...parsed.searchParams.keys()].slice(0, maxParams);
+    const names = [...parsed.searchParams.keys()]
+      .filter((name) => !options.paramFilter || name === options.paramFilter)
+      .slice(0, maxParams);
     if (!names.length) continue;
 
     let baseline;
@@ -119,13 +138,32 @@ export async function runParamProbes(guard, options = {}) {
       paramsTested += 1;
       const original = parsed.searchParams.get(name) ?? "";
 
-      if (classes.includes("sqli") && !done.has("sqli")) {
-        const found = await sqliProbes(guard, { target: parsed.href, name, original, baseline, headers, add });
-        if (found) done.add("sqli");
-      }
-      if (classes.includes("ssti") && !done.has("ssti")) {
-        const found = await sstiProbe(guard, { target: parsed.href, name, original, baseline, headers, add });
-        if (found) done.add("ssti");
+      for (const transform of transforms) {
+        if (classes.every((value) => done.has(value))) break;
+        if (classes.includes("sqli") && !done.has("sqli")) {
+          const found = await sqliProbes(guard, {
+            target: parsed.href,
+            name,
+            original,
+            baseline,
+            headers,
+            transform,
+            add,
+          });
+          if (found) done.add("sqli");
+        }
+        if (classes.includes("ssti") && !done.has("ssti")) {
+          const found = await sstiProbe(guard, {
+            target: parsed.href,
+            name,
+            original,
+            baseline,
+            headers,
+            transform,
+            add,
+          });
+          if (found) done.add("ssti");
+        }
       }
     }
   }
@@ -143,6 +181,7 @@ export async function runParamProbes(guard, options = {}) {
     generated_at: nowIso(),
     targets: urls,
     classes,
+    transforms,
     params_tested: paramsTested,
     findings,
     stats: {
@@ -156,15 +195,16 @@ export async function runParamProbes(guard, options = {}) {
       "只做存在性判断:错误签名 / 布尔差分 / 模板求值。不做 UNION、堆叠、时间盲注、数据提取。",
       "布尔差分可能被动态页面干扰;证据带 request_id,需人工复核后再定级。",
       "只测 URL 查询参数(GET),不自动提交表单或 JSON body。",
+      "编码变体只用于存在性检测,不套真实攻击载荷;通过 WAF 不等于存在漏洞。",
       "主动探测会向目标发请求,仅限 scope 内且已显式开启 allow_active_probes。",
     ],
   };
 }
 
 async function sqliProbes(guard, context) {
-  const { target, name, original, baseline, headers, add } = context;
+  const { target, name, original, baseline, headers, transform, add } = context;
 
-  const quoteUrl = withParam(target, name, `${original}'`);
+  const quoteUrl = withParam(target, name, applyTransform(transform, `${original}'`));
   let quote;
   try {
     quote = await guard.request(quoteUrl, { headers });
@@ -180,11 +220,12 @@ async function sqliProbes(guard, context) {
       severity: "high",
       confidence: "high",
       title: `参数 ${name} 触发 SQL 错误`,
-      where: `GET ${redactUrl(target)} (param: ${name})`,
-      detail: `注入单引号后响应命中数据库错误签名:${truncate(match[0], 160)}`,
+      where: whereFor(target, name, transform),
+      detail: `注入单引号后响应命中数据库错误签名:${truncate(match[0], 160)}${transform !== "single" ? `(编码变体:${transform})` : ""}`,
       evidence: {
         request_id: quote.request_id,
         status: quote.status,
+        transform,
         snippet: snippetAround(quote.body, match[0].slice(0, 20), 120),
       },
       verify: "确认错误由该参数引起、且未做统一错误页;不要继续注入取数。",
@@ -192,8 +233,8 @@ async function sqliProbes(guard, context) {
     return true;
   }
 
-  const trueUrl = withParam(target, name, `${original}' AND '1'='1`);
-  const falseUrl = withParam(target, name, `${original}' AND '1'='2`);
+  const trueUrl = withParam(target, name, applyTransform(transform, `${original}' AND '1'='1`));
+  const falseUrl = withParam(target, name, applyTransform(transform, `${original}' AND '1'='2`));
   let trueRes;
   let falseRes;
   try {
@@ -212,11 +253,12 @@ async function sqliProbes(guard, context) {
       severity: "high",
       confidence: "medium",
       title: `参数 ${name} 存在布尔差分`,
-      where: `GET ${redactUrl(target)} (param: ${name})`,
-      detail: `真/假条件响应显著不同(与基线相似度 true=${simTrue.toFixed(2)}, false=${simFalse.toFixed(2)}, 两者=${simPair.toFixed(2)})。`,
+      where: whereFor(target, name, transform),
+      detail: `真/假条件响应显著不同(与基线相似度 true=${simTrue.toFixed(2)}, false=${simFalse.toFixed(2)}, 两者=${simPair.toFixed(2)})${transform !== "single" ? `;编码变体:${transform}` : ""}。`,
       evidence: {
         request_id: trueRes.request_id,
         false_request_id: falseRes.request_id,
+        transform,
         similarity: { true: simTrue, false: simFalse, pair: simPair },
       },
       verify: "手工对比两次响应的业务含义;动态页面/缓存可能造成假阳性。",
@@ -227,11 +269,11 @@ async function sqliProbes(guard, context) {
 }
 
 async function sstiProbe(guard, context) {
-  const { target, name, original, baseline, headers, add } = context;
+  const { target, name, original, baseline, headers, transform, add } = context;
   const expression = "{{7*7}}";
   if (original.includes(expression)) return false;
 
-  const probeUrl = withParam(target, name, `${original}${expression}`);
+  const probeUrl = withParam(target, name, applyTransform(transform, `${original}${expression}`));
   let response;
   try {
     response = await guard.request(probeUrl, { headers });
@@ -248,14 +290,64 @@ async function sstiProbe(guard, context) {
     severity: "high",
     confidence: "medium",
     title: `参数 ${name} 疑似模板注入`,
-    where: `GET ${redactUrl(target)} (param: ${name})`,
-    detail: "提交 {{7*7}} 后响应出现 49,且原始表达式未原样回显。这是模板求值候选。",
+    where: whereFor(target, name, transform),
+    detail: `提交 {{7*7}} 后响应出现 49,且原始表达式未原样回显。这是模板求值候选。${transform !== "single" ? `(编码变体:${transform})` : ""}`,
     evidence: {
       request_id: response.request_id,
       status: response.status,
+      transform,
       snippet: snippetAround(body, "49", 80),
     },
     verify: "手工确认 49 来自模板求值而非页面原有内容;不要继续执行系统命令。",
   });
   return true;
+}
+
+export async function runAdaptiveParamProbes(guard, options = {}) {
+  if (guard.limits.allow_active_probes !== true) {
+    throw new Error("自适应参数探测需要 scope.limits.allow_active_probes=true。");
+  }
+  if (guard.limits.allow_waf_probe !== true) {
+    throw new Error("自适应参数探测需要 scope.limits.allow_waf_probe=true;先跑 web_waf 并显式授权。");
+  }
+  if (options.confirm !== true) {
+    throw new Error("自适应参数探测需要 confirm=true。");
+  }
+
+  const url = String(options.url || "");
+  const param = String(options.param || "");
+  if (!url || !param) throw new Error("需要 url 与 param");
+
+  const profile = loadWafProfile(guard.projectDir, { url, param });
+  const recommended = Array.isArray(profile.recommended_transforms) ? profile.recommended_transforms : [];
+  const transforms = [...new Set(["single", ...recommended])].slice(
+    0,
+    Math.min(Math.max(Number(options.maxTransforms) || 3, 1), 4),
+  );
+
+  const result = await runParamProbes(guard, {
+    urls: [url],
+    confirm: true,
+    classes: options.classes,
+    headers: options.headers,
+    maxParams: 1,
+    paramFilter: param,
+    transforms,
+  });
+
+  return {
+    ...result,
+    tool: "web_param_adaptive",
+    transforms_tested: transforms,
+    waf_profile: {
+      url: profile.url,
+      param: profile.param,
+      verdict: profile.verdict,
+      recommended_transforms: recommended,
+    },
+    limitations: [
+      ...result.limitations,
+      "编码变体来自 WAF profile 的通过项;只用于存在性检测,不改变探针的检测目的。",
+    ],
+  };
 }

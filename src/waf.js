@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { nowIso, redactUrl, shortHash, snippetAround, truncate } from "./util.js";
 
 // WAF 行为分析:只测"规范化差异",不生成利用载荷。
@@ -175,9 +177,16 @@ const SHAPES = [
   { id: "template", label: "模板表达式", make: (marker) => `{{7*7}}${marker}` },
 ];
 
+export const TRANSFORM_IDS = ["single", "double", "html", "unicode"];
+
 const TRANSFORMS = [
   { id: "single", label: "单次 URL 编码(标准)", apply: (value) => value },
-  { id: "double", label: "双重 URL 编码", apply: (value) => encodeURIComponent(value) },
+  {
+    id: "double",
+    label: "双重 URL 编码",
+    // encodeURIComponent 不会编码单引号;手工补上,否则 SQLi 探针拿不到双重编码。
+    apply: (value) => encodeURIComponent(value).replace(/'/g, "%27"),
+  },
   {
     id: "html",
     label: "HTML 实体",
@@ -191,6 +200,67 @@ const TRANSFORMS = [
       value.replace(/</g, "\\u003C").replace(/>/g, "\\u003E").replace(/"/g, "\\u0022").replace(/'/g, "\\u0027"),
   },
 ];
+
+export function applyTransform(id, value) {
+  const transform = TRANSFORMS.find((item) => item.id === id);
+  if (!transform) throw new Error(`未知编码变体:${id}(支持:${TRANSFORM_IDS.join("/")})`);
+  return transform.apply(String(value));
+}
+
+export function wafProfilePath(projectDir) {
+  return path.join(path.resolve(projectDir), ".fairy", "waf", "profile.json");
+}
+
+export function loadWafProfile(projectDir, { url, param } = {}) {
+  const file = wafProfilePath(projectDir);
+  if (!fs.existsSync(file)) {
+    throw new Error("没有 WAF 画像:先跑 web_waf 生成 profile。");
+  }
+  const profile = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (profile.schema !== "FairyWafProfile/v1") throw new Error(`WAF profile schema 不匹配:${profile.schema}`);
+  if (param && profile.param !== param) {
+    throw new Error(`WAF profile 是给参数 ${profile.param} 的,不是 ${param};先对目标参数跑 web_waf。`);
+  }
+  if (url) {
+    let currentHost;
+    let profileHost;
+    try {
+      currentHost = new URL(url).host;
+      profileHost = new URL(profile.url).host;
+    } catch {
+      currentHost = null;
+      profileHost = null;
+    }
+    if (currentHost && profileHost && currentHost !== profileHost) {
+      throw new Error(`WAF profile 属于 ${profileHost},不是 ${currentHost};先对目标跑 web_waf。`);
+    }
+  }
+  return profile;
+}
+
+function saveWafProfile(projectDir, analysis) {
+  const file = wafProfilePath(projectDir);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const profile = {
+    schema: "FairyWafProfile/v1",
+    url: analysis.url,
+    param: analysis.param,
+    host: (() => {
+      try {
+        return new URL(analysis.url).host;
+      } catch {
+        return null;
+      }
+    })(),
+    generated_at: nowIso(),
+    verdict: analysis.verdict,
+    rules: analysis.rules,
+    recommended_transforms: analysis.rules.recommended_transforms,
+    waf: analysis.waf,
+  };
+  fs.writeFileSync(file, `${JSON.stringify(profile, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+  return { path: file, profile };
+}
 
 function withParam(href, name, value) {
   const url = new URL(href);
@@ -326,6 +396,37 @@ export async function analyzeWaf(guard, options = {}) {
     evidence: [...new Set(wafEvidence)].slice(0, 12),
   };
 
+  const transformScores = {};
+  for (const row of rows) {
+    if (!row.passed || row.transform === "single") continue;
+    transformScores[row.transform] = (transformScores[row.transform] || 0) + 1;
+  }
+  const ranked = Object.entries(transformScores)
+    .sort((a, b) => b[1] - a[1])
+    .map(([id]) => id);
+  const recommended = ranked.slice(0, 2);
+  const blockedShapes = shapes.filter((shape) => shape.raw_blocked).map((shape) => shape.shape);
+  const rules = {
+    blocked_shapes: blockedShapes,
+    transform_effectiveness: transformScores,
+    recommended_transforms: recommended,
+    hypothesis: recommended.length
+      ? `单次编码被拦截;${recommended.join(" / ")} 出现通过,存在规范化差异`
+      : blockedShapes.length
+        ? "存在拦截,但没有观察到通过变体"
+        : "未观察到拦截",
+    confidence: recommended.length ? "low" : "none",
+  };
+
+  const verdict = normalizationGap
+    ? "normalization-gap"
+    : blockedCount
+      ? "waf-present"
+      : baselineWaf.detected
+        ? "waf-fingerprint-only"
+        : "no-waf-signal";
+  const saved = saveWafProfile(guard.projectDir, { url, param, verdict, rules, waf });
+
   return {
     schema: "FairyWaf/v1",
     tool: "web_waf",
@@ -343,14 +444,10 @@ export async function analyzeWaf(guard, options = {}) {
     waf,
     shapes,
     matrix: rows,
-    verdict: normalizationGap
-      ? "normalization-gap"
-      : blockedCount
-        ? "waf-present"
-        : baselineWaf.detected
-          ? "waf-fingerprint-only"
-          : "no-waf-signal",
+    verdict,
+    rules,
     observations,
+    profile_path: saved.path,
     stats: {
       requests: guard.count,
       blocked: blockedCount,
