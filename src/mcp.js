@@ -40,7 +40,7 @@ import {
   sortFindings,
 } from "./ledger.js";
 import { planChains } from "./playbooks.js";
-import { materializeChain } from "./planner.js";
+import { materializeChain, plannerTick } from "./planner.js";
 import { runWorkerAction } from "./worker.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
@@ -354,6 +354,25 @@ const TOOLS = [
         complete: args.complete !== false,
       });
     },
+  },
+  {
+    name: "fairy_planner_tick",
+    description:
+      "规划器轮询:读账本 + 链,可选把 ready 链落成意图,然后选出下一条该做的事(或提示先审批/先落单)。只读与落单,不发请求。",
+    inputSchema: {
+      type: "object",
+      required: ["project"],
+      properties: {
+        project: { type: "string" },
+        materialize: { type: "boolean", description: "是否自动落单 ready 链,默认 false。" },
+        max_chains: { type: "number", description: "本轮最多落单几条链,默认 1,上限 5。" },
+      },
+    },
+    run: async (args) =>
+      plannerTick(projectOf(args), {
+        materialize: args.materialize === true,
+        maxChains: args.max_chains,
+      }),
   },
   {
     name: "fairy_chain_materialize",
@@ -957,6 +976,7 @@ const CLOSED_WORLD = new Set([
   "fairy_chain_plan",
   "fairy_ledger_ingest",
   "fairy_chain_materialize",
+  "fairy_planner_tick",
   "web_session",
   "fairy_disclose",
 ]);

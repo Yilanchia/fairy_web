@@ -134,6 +134,13 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] worker 自动选择动作(仍需 LLM 规划)
 - 验收:claim 第一步后执行 probe,结果写回;requires_approval 的意图在 approve 前被拒。
 
+### v0.12 planner tick
+- [x] `fairy_planner_tick`:读账本/链 → 落单 ready 链 → 选下一步
+- [x] 没有下一步时提示 `materialize` / `approve` / `wait_active`
+- [x] 只读与落单,不发请求;执行仍归 worker
+- [ ] 跨轮自动循环(完成一步后自动 tick)
+- 验收:空账本先提示 materialize;落单后给 claim_next;审批未过时给 approve。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |

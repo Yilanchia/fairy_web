@@ -9,7 +9,7 @@
   `web_login` / `web_compare` / `web_report`。
 - **一次有边界的任务**:`fairy_mission`(扫描→报告→入账→链规划);默认不登录、
   不跑参数探测、不跑 WAF 画像。
-- **计划/执行**:`fairy_chain_plan` → `fairy_chain_materialize` → `claim` / `approve` /
+- **计划/执行**:`fairy_planner_tick`(自动落单 + 选下一步)→ `claim` / `approve` /
   `done`;`requires_approval` 的步骤不批准不会被领取。
 - **worker**:`fairy_worker_run` 只执行 active 且已审批的意图,动作白名单
   `probe/compare/browser/param/param_adaptive`;结果写回并结单。

@@ -15,7 +15,7 @@ import { analyzeWaf } from "./waf.js";
 import { inspectDomContext } from "./domxss.js";
 import { writeDisclosure } from "./disclosure.js";
 import { runMission } from "./mission.js";
-import { materializeChain } from "./planner.js";
+import { materializeChain, plannerTick } from "./planner.js";
 import { runWorkerAction } from "./worker.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
@@ -38,6 +38,7 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js waf    <project> <url> --param q --confirm [--session alice]
   node src/cli.js param  <project> <url...> --confirm [--classes sqli,ssti] [--max-params 20] [--session alice]
   node src/cli.js param-adaptive <project> <url> --param q --confirm [--classes sqli,ssti] [--session alice]
+  node src/cli.js tick <project> [--materialize] [--max 1]
   node src/cli.js materialize <project> <chain_id>
   node src/cli.js worker <project> <intent_id> --action probe --url <url> [--session alice] [--a alice --b bob --marker X]
   node src/cli.js disclose <project> [--include-candidates]
@@ -419,6 +420,12 @@ try {
     } finally {
       guard.close();
     }
+  } else if (command === "tick") {
+    const project = path.resolve(args._[0] || process.cwd());
+    print(plannerTick(project, {
+      materialize: boolOption(args.materialize, false),
+      maxChains: args.max,
+    }));
   } else if (command === "materialize") {
     const project = path.resolve(args._[0] || process.cwd());
     const chainId = args._[1];

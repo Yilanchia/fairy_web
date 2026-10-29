@@ -104,6 +104,7 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `fairy_ledger_advance` | 领取/结单意图,改发现状态 | 否 |
 | `fairy_ledger_ingest` | 把最近一次扫描报告导入账本 | 否 |
 | `fairy_chain_plan` | 按账本匹配攻击链,给最小证明与停止点 | 否 |
+| `fairy_planner_tick` | 轮询:落单 ready 链 + 选出下一步/提示审批 | 否 |
 | `fairy_chain_materialize` | 把 ready 链落成有依赖的意图序列(幂等) | 否 |
 | `fairy_worker_run` | 执行 active 且已审批的意图(probe/compare/browser/param) | 是 |
 | `fairy_mission` | 一次有边界的任务:扫描→报告→入账→链规划 | 是 |
@@ -138,7 +139,7 @@ fairy_ledger_init(project)
 web_report(project, urls, crawl=true)
 fairy_ledger_ingest(project)            # 资产/技术栈/候选发现入账
 fairy_chain_plan(project)               # ready 的链 + 每步证明 + 停止点
-fairy_chain_materialize(project, "cors-credential-read")  # 落成有依赖的意图
+fairy_planner_tick(project, materialize=true)  # 落单 + 选下一步
 fairy_ledger_advance(action="claim")    # 领取下一步意图
 fairy_ledger_advance(action="approve", intent_id="I-002") # requires_approval 的步骤
 fairy_worker_run(intent_id="I-001", action="probe", url="https://...")  # 执行并自动结单
@@ -462,6 +463,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.9 mission:扫描→报告→入账→链规划 + 本地类别级基准
 - [x] v0.10 planner/worker:链落单 → 依赖领取 → 审批门 → 结单
 - [x] v0.11 worker:执行 active 意图(probe/compare/browser/param),结果写回账本
+- [x] v0.12 planner tick:自动落单 + 选下一步 + 审批提示
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 
