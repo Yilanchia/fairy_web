@@ -113,6 +113,8 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `web_session` | 会话管理:list/show/create/delete,不回显值 | 否 |
 | `fairy_accounts_provision` | 按清单批量登录,存命名会话 + 归属入账 | 是 |
 | `fairy_accounts_show` | 账号元数据与 BOLA 配对;不回显凭据 | 否 |
+| `fairy_proof` | 反射点 DOM 上下文判定,升置信/写 fact | 是 |
+| `fairy_memory_show` | 跨 engagement host 记忆;不含凭据 | 否 |
 | `web_compare` | 双会话差分:BOLA/IDOR/BFLA 证据骨架 | 是 |
 | `web_role_matrix` | 多账号 × 多端点权限矩阵(只读 GET) | 是 |
 | `fairy_reachability` | 最高授权后的只读身份/权限/资产图 | 是 |
@@ -260,6 +262,42 @@ node src/cli.js matrix D:\work\lab `
 
 它只给候选,不读对象内容、不提权、不执行横向。复核时用两个真实测试账号,
 确认差异来自对象归属,不要批量拉数据。
+
+## 证据深度
+
+反射候选不只看“有没有反射”,再走一步看 DOM 上下文:
+
+```powershell
+node src/cli.js proof D:\work\lab V-001
+```
+
+`fairy_proof` 会:
+
+- 用浏览器打开反射 URL,判定标记落在 script / 事件属性 / 普通属性 / 文本 / 注释;
+- 读 CSP;
+- 只有 **script 或事件属性 + 无有效 CSP** 才写 `XSS 可证` fact,并把 finding 的 `confidence` 升到 `high`;
+- 仍然是 `candidate`,不生成载荷、不自动 verified。
+
+`fairy_report_bundle` 会多一段“证据深度”:可证 / 需人工 / 未判定。
+
+## 跨 engagement 记忆
+
+只记 host 级元数据,不记 cookie、凭据、正文、marker:
+
+```powershell
+node src/cli.js memory --host example.com
+```
+
+记住:
+
+- 技术栈
+- WAF 厂商
+- 登录路径
+- 会反射的参数名
+- 历史发现类型
+
+默认落在 `~/.fairy/memory.json`;可用 `FAIRY_MEMORY_DIR` 改目录。
+`mission` 跑完会自动记住扫描到的 host;`web_waf` 会记住 WAF 厂商。
 
 ## 最高授权闸:只读触手
 
@@ -608,6 +646,8 @@ src/
   highauth.js    最高授权文件(HMAC,仅 read-only)
   reachability.js 最高授权后的身份/权限/资产图
   ingest.js      统一证据入口(scan/param/WAF/矩阵/可达性/Verdex)
+  proof.js       反射点 DOM 上下文判定(只升置信,不造载荷)
+  memory.js      跨 engagement host 元数据(不含凭据)
   evidence-report.js 以账本为准的跨工具报告
   mission.js     有边界的任务:扫描→报告→入账→链规划
   playbooks.js   web 攻击链知识库与匹配
@@ -646,6 +686,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.17 证据闭环:统一 ingest + 跨工具报告,Verdex 发现回流账本
 - [x] v0.18.0 账本驱动自治:派生 context + worker 观察回灌 fact
 - [x] v0.18.1 账号编排:accounts manifest → 批量登录 → BOLA 配对
+- [x] v0.18.2 证据深度 + 记忆:proof 上下文判定 + host 元数据记忆
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

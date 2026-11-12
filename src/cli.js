@@ -24,6 +24,8 @@ import { createHighAuth } from "./highauth.js";
 import { runReachability } from "./reachability.js";
 import { ingestFile } from "./ingest.js";
 import { provisionAccounts, showAccounts } from "./accounts.js";
+import { proofFinding } from "./proof.js";
+import { showMemory } from "./memory.js";
 import { writeLedgerReport } from "./evidence-report.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
@@ -45,6 +47,8 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js high-auth <project> --basis "..." --approver "..." --assets "host1,host2" [--hours 24]
   node src/cli.js reachability <project> <url...> --sessions alice,bob
   node src/cli.js accounts <project> [--only alice,bob] [--show]
+  node src/cli.js proof <project> <finding_id> [--url ...] [--param q] [--session alice]
+  node src/cli.js memory [--host example.com]
   node src/cli.js matrix <project> <url...> --sessions alice,bob [--no-anon]
   node src/cli.js dom    <project> <url> --param q [--session alice]
   node src/cli.js waf    <project> <url> --param q --confirm [--session alice]
@@ -423,6 +427,20 @@ try {
         }),
       );
     }
+  } else if (command === "proof") {
+    const project = path.resolve(args._[0] || process.cwd());
+    const findingId = args._[1];
+    if (!findingId) throw new Error("proof 需要 finding_id");
+    print(
+      await proofFinding(project, findingId, {
+        url: args.url,
+        param: args.param,
+        session: args.session,
+        waitMs: args["wait-ms"],
+      }),
+    );
+  } else if (command === "memory") {
+    print(showMemory(args.host));
   } else if (command === "matrix") {
     const project = path.resolve(args._[0] || process.cwd());
     const urls = args._.slice(1);

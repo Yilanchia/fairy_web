@@ -19,6 +19,9 @@
   签名,仅 `read-only`);解锁只读可达性图,不解锁横向执行。`high-auth` 只能由授权人 CLI 运行。
 - **账号编排**:`.fairy/accounts.json` 由授权人维护;`fairy_accounts_provision` 批量登录成
   命名会话,`fairy_accounts_show` 只回元数据与 BOLA 配对。密码只走 `password_env`,不回显。
+- **证据深度**:`fairy_proof` 只做 DOM 上下文判定;script/事件属性 + 弱 CSP 才升 confidence,
+  不生成载荷、不自动 verified。
+- **记忆**:`fairy_memory_show` 只读 host 元数据(tech/waf/路径/参数/发现类型),不含凭据。
 - **账本自治**:planner 从 host/endpoint/已存会话名派生 context;worker 把 probe/compare/param
   的可判定观察回灌成 observed fact。fact 不自动造 finding,审批门不放行。
 - **证据闭环**:各工具结果用 `fairy_ingest` 归一进账本(scan/param/WAF/矩阵/可达性/Verdex),

@@ -2,6 +2,7 @@ import { loadLedger, appendLedger, addIntent } from "./ledger.js";
 import { planChains } from "./playbooks.js";
 import { deriveContext, inferWork } from "./work.js";
 import { listSessions } from "./session.js";
+import { loadAccounts, bolaPairs } from "./accounts.js";
 
 // Planner:把一条 ready 链落成有依赖的意图序列。
 // Worker 不直接"打整条链",只领取依赖已满足的下一步;每完成一步再唤醒下一步。
@@ -55,7 +56,11 @@ export function materializeChain(projectDir, chainId, options = {}) {
     for (let index = 0; index < chain.steps.length; index++) {
       const step = chain.steps[index];
       const goal = `${chain.title} · 步骤 ${index + 1}:${step.action}`.slice(0, 300);
-      const planned = workPlan.get(index + 1) || inferWork(chainId, index + 1, context) || null;
+      const planned =
+        workPlan.get(index + 1) ||
+        accountPairWork(projectDir, chainId, index + 1) ||
+        inferWork(chainId, index + 1, context) ||
+        null;
       const intent = addIntent(ledger, {
         goal,
         depends_on: dependsOn,
@@ -73,6 +78,22 @@ export function materializeChain(projectDir, chainId, options = {}) {
 
     return { chain: summarize(chain), intents, existing: false };
   });
+}
+
+function accountPairWork(projectDir, chainId, stepIndex) {
+  if (chainId !== "idor-bola" || stepIndex !== 2) return null;
+  try {
+    const pair = bolaPairs(loadAccounts(projectDir))[0];
+    if (!pair) return null;
+    return {
+      action: pair.action,
+      args: pair.args,
+      inferred: true,
+      note: "accounts manifest bola pair",
+    };
+  } catch {
+    return null;
+  }
 }
 
 function claimable(ledger) {

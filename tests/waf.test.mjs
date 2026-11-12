@@ -9,6 +9,8 @@ import { analyzeWaf } from "../src/waf.js";
 import { dispatch } from "../src/mcp.js";
 import { startLab } from "./fixture-server.mjs";
 
+process.env.FAIRY_MEMORY_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "fairy-waf-memory-"));
+
 function tmpProject(limits = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fairy-waf-"));
   saveScope(dir, {

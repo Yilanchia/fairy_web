@@ -47,6 +47,8 @@ import { runRoleMatrix } from "./matrix.js";
 import { runReachability } from "./reachability.js";
 import { ingestPayload, ingestFile } from "./ingest.js";
 import { provisionAccounts, showAccounts } from "./accounts.js";
+import { proofFinding } from "./proof.js";
+import { showMemory } from "./memory.js";
 import { writeLedgerReport } from "./evidence-report.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
@@ -447,6 +449,41 @@ const TOOLS = [
       });
       return { ok: true, ...result };
     },
+  },
+  {
+    name: "fairy_proof",
+    description:
+      "证据深度:对 reflection/xss finding 做一次 DOM 上下文判定,script/事件属性且无有效 CSP 时写 fact、升 confidence 到 high;仍是 candidate,不生成载荷、不自动 verified。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "finding_id"],
+      properties: {
+        project: { type: "string" },
+        finding_id: { type: "string" },
+        url: { type: "string", description: "可选;默认从 finding.where 解析。" },
+        param: { type: "string", description: "可选;默认取 URL 第一个查询参数。" },
+        session: { type: "string" },
+        wait_ms: { type: "number" },
+      },
+    },
+    run: async (args) =>
+      proofFinding(projectOf(args), args.finding_id, {
+        url: args.url,
+        param: args.param,
+        session: args.session,
+        waitMs: args.wait_ms,
+      }),
+  },
+  {
+    name: "fairy_memory_show",
+    description: "只读跨 engagement 记忆:host 的 tech/WAF/login_paths/reflecting_params/发现类型;不含 cookie/凭据/正文。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        host: { type: "string" },
+      },
+    },
+    run: async (args) => showMemory(args.host),
   },
   {
     name: "fairy_ingest",
@@ -1152,6 +1189,7 @@ const CLOSED_WORLD = new Set([
   "fairy_ingest",
   "fairy_report_bundle",
   "fairy_accounts_show",
+  "fairy_memory_show",
   "fairy_chain_materialize",
   "fairy_planner_tick",
   "web_session",

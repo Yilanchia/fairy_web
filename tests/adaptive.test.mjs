@@ -10,6 +10,8 @@ import { runAdaptiveParamProbes } from "../src/probe.js";
 import { dispatch } from "../src/mcp.js";
 import { startLab } from "./fixture-server.mjs";
 
+process.env.FAIRY_MEMORY_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "fairy-adaptive-memory-"));
+
 function tmpProject(limits = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fairy-adaptive-"));
   saveScope(dir, {

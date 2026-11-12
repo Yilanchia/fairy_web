@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { loadLedger, summary } from "./ledger.js";
+import { classifyProof } from "./proof.js";
 import { escapeHtml, nowIso, severityRank } from "./util.js";
 
 // 跨工具证据报告:以账本为准,而不是以某一次 scan 为准。
@@ -74,6 +75,16 @@ function renderMarkdown(ledger, report, title) {
     if (finding.repro?.length) lines.push(`- 复现: ${finding.repro.join(" → ")}`);
     lines.push("");
   }
+
+  lines.push("## 证据深度", "");
+  const proof = report.proof;
+  lines.push(
+    `- 可证:${proof.counts.provable || 0} / 需人工:${proof.counts["needs-review"] || 0} / 未判定:${proof.counts.unclassified || 0}`,
+  );
+  for (const item of proof.items) {
+    lines.push(`- ${item.finding_id} [${item.status}] ${item.title} — ${item.reason}`);
+  }
+  lines.push("");
 
   lines.push("## 资产", "");
   const byType = new Map();
@@ -164,6 +175,7 @@ export function writeLedgerReport(projectDir, options = {}) {
     engagement: ledger.engagement,
     summary: summary(ledger),
     findings: sortedFindings(ledger),
+    proof: classifyProof(ledger),
     assets: ledger.assets,
     facts: ledger.facts,
     coverage: ledger.coverage,

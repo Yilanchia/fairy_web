@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { nowIso, redactUrl, shortHash, snippetAround, truncate } from "./util.js";
+import { rememberHost } from "./memory.js";
 
 // WAF 行为分析:只测"规范化差异",不生成利用载荷。
 // 通过带标记的语法形状 + 通用编码变体,观察哪些请求被拦截、哪些到达后端。
@@ -426,6 +427,11 @@ export async function analyzeWaf(guard, options = {}) {
         ? "waf-fingerprint-only"
         : "no-waf-signal";
   const saved = saveWafProfile(guard.projectDir, { url, param, verdict, rules, waf });
+  try {
+    rememberHost(url, { waf: waf.vendor || "unknown" });
+  } catch {
+    // 记忆是增益,不阻断 WAF 分析。
+  }
 
   return {
     schema: "FairyWaf/v1",

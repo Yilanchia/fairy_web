@@ -8,6 +8,8 @@ import { runMission } from "../src/mission.js";
 import { dispatch } from "../src/mcp.js";
 import { startLab } from "./fixture-server.mjs";
 
+process.env.FAIRY_MEMORY_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "fairy-mission-memory-"));
+
 function tmpProject() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "fairy-mission-"));
   saveScope(dir, {

@@ -4,6 +4,7 @@ import { executeScan } from "./scan.js";
 import { writeReport } from "./report.js";
 import { initLedger, loadLedger, ingestScanReport } from "./ledger.js";
 import { planChains } from "./playbooks.js";
+import { rememberFromScan } from "./memory.js";
 import { nowIso } from "./util.js";
 
 // 一次有边界的任务:扫描 → 报告 → 入账 → 链规划。
@@ -45,6 +46,13 @@ export async function runMission(projectDir, options = {}) {
     findings: result.findings.length,
     duration_ms: Date.now() - scanStarted,
   });
+
+  let memory = null;
+  try {
+    memory = rememberFromScan(result);
+  } catch (error) {
+    memory = { error: error.message };
+  }
 
   let files = null;
   if (options.report !== false) {
@@ -99,6 +107,7 @@ export async function runMission(projectDir, options = {}) {
       duration_ms: Date.now() - started,
     },
     report: files,
+    memory,
     ledger: {
       added: ingest.added || null,
       skipped: ingest.skipped === true,

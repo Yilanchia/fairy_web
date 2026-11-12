@@ -4,7 +4,8 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { saveScope } from "../src/scope.js";
-import { loadLedger, initLedger } from "../src/ledger.js";
+import { loadLedger, initLedger, saveLedger, addAsset } from "../src/ledger.js";
+import { materializeChain } from "../src/planner.js";
 import { listSessions } from "../src/session.js";
 import {
   loadAccounts,
@@ -111,6 +112,29 @@ test("bolaPairs:从归属关系生成 owner→viewer 的 compare work", async ()
       assert.equal(pair.args.marker, "ALICE-ORDER-7001");
       assert.equal(pair.args.url, `${lab.url}/api/orders/7001`);
     }
+  } finally {
+    await lab.close();
+  }
+});
+
+test("materializeChain:idor-bola step2 自动使用 accounts 配对", async () => {
+  const lab = await startLab();
+  const dir = setup(lab);
+  try {
+    const ledger = loadLedger(dir);
+    addAsset(ledger, { type: "account", value: "alice", tags: ["user"] });
+    addAsset(ledger, { type: "account", value: "bob", tags: ["user"] });
+    addAsset(ledger, { type: "param", value: "id" });
+    saveLedger(dir, ledger);
+
+    const materialized = materializeChain(dir, "idor-bola");
+    const step2 = materialized.intents[1];
+    assert.equal(step2.work.action, "compare");
+    assert.equal(step2.work.inferred, true);
+    assert.equal(step2.work.args.session_a, "alice");
+    assert.equal(step2.work.args.session_b, "bob");
+    assert.equal(step2.work.args.marker, "ALICE-ORDER-7001");
+    assert.equal(step2.work.args.url, `${lab.url}/api/orders/7001`);
   } finally {
     await lab.close();
   }

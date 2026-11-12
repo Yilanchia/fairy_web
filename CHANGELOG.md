@@ -3,6 +3,25 @@
 All notable changes to Fairy / Web. The project follows semantic versioning for
 the CLI/MCP surface; evidence schemas use `Fairy*/v1` and are additive.
 
+## 0.18.2 — 2026-11-12
+
+### Added
+
+- `fairy_proof`: browser DOM-context classification for reflection/XSS findings;
+  script/event-handler context with weak CSP writes an observed fact and raises
+  confidence to `high`, while leaving the finding `candidate`.
+- `fairy_report_bundle` includes a proof summary (provable / needs-review /
+  unclassified).
+- Cross-engagement `memory`: host-level tech, WAF vendor, login paths,
+  reflecting parameter names and prior finding kinds.
+- `mission` and `web_waf` remember host metadata; `fairy_memory_show` is read-only.
+- `accounts` BOLA pairs auto-wire the `idor-bola` step-2 `compare` work.
+
+### Security
+
+- Proof never generates payloads and never auto-verifies findings.
+- Memory excludes cookies, credentials, response bodies and markers.
+
 ## 0.18.1 — 2026-11-12
 
 ### Added

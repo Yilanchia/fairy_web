@@ -193,8 +193,16 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [x] `provisionAccounts`:每个账号只登录一次,存命名会话,账号/归属入账
 - [x] `showAccounts`:只回 name/role/owns.marker/session_ready + BOLA 配对
 - [x] `bolaPairs`:owner→viewer 生成 compare work,不猜归属、不读真实数据
-- [ ] 清单与 `fairy_chain_materialize` 的自动接线
+- [x] 清单与 `fairy_chain_materialize` 的自动接线(idor-bola step2)
 - 验收:alice/bob/admin 批量就绪;scope 无 POST 拒绝;show 不含密码/cookie;配对 marker 正确。
+
+### v0.18.2 证据深度 + 记忆
+- [x] `fairy_proof`:反射点 DOM 上下文判定 + CSP;script/事件属性 + 弱 CSP 才升 high
+- [x] `fairy_report_bundle` 增加“证据深度”段
+- [x] `memory`:host 级 tech/waf/login_paths/reflecting_params/历史发现类型
+- [x] `mission` / `web_waf` 自动记忆;`fairy_memory_show` 只读
+- [x] 记忆不存 cookie/凭据/正文/marker
+- 验收:script 反射升 high 并写 fact;文本反射不升级;记忆文件无凭据;WAF 厂商可召回。
 
 ## 6. 质量指标(比"扫了多少"更重要)
 
