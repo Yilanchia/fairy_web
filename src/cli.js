@@ -23,6 +23,7 @@ import { runRoleMatrix } from "./matrix.js";
 import { createHighAuth } from "./highauth.js";
 import { runReachability } from "./reachability.js";
 import { ingestFile } from "./ingest.js";
+import { provisionAccounts, showAccounts } from "./accounts.js";
 import { writeLedgerReport } from "./evidence-report.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
@@ -43,6 +44,7 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js compare <project> <url> --a alice --b bob [--marker "ALICE-ORDER-1"]
   node src/cli.js high-auth <project> --basis "..." --approver "..." --assets "host1,host2" [--hours 24]
   node src/cli.js reachability <project> <url...> --sessions alice,bob
+  node src/cli.js accounts <project> [--only alice,bob] [--show]
   node src/cli.js matrix <project> <url...> --sessions alice,bob [--no-anon]
   node src/cli.js dom    <project> <url> --param q [--session alice]
   node src/cli.js waf    <project> <url> --param q --confirm [--session alice]
@@ -409,6 +411,17 @@ try {
       );
     } finally {
       guard.close();
+    }
+  } else if (command === "accounts") {
+    const project = path.resolve(args._[0] || process.cwd());
+    if (args.show) {
+      print(showAccounts(project));
+    } else {
+      print(
+        await provisionAccounts(project, {
+          only: args.only ? String(args.only).split(",") : undefined,
+        }),
+      );
     }
   } else if (command === "matrix") {
     const project = path.resolve(args._[0] || process.cwd());

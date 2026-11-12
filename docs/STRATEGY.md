@@ -188,6 +188,14 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] 事件驱动跨轮推进(新 fact → 自动 tick)
 - 验收:无 context 落单 git 链 step1;worker 命中 git/越权后账本出现对应 fact 且幂等。
 
+### v0.18.1 账号编排
+- [x] `.fairy/accounts.json` 清单:name/role/login/owns
+- [x] `provisionAccounts`:每个账号只登录一次,存命名会话,账号/归属入账
+- [x] `showAccounts`:只回 name/role/owns.marker/session_ready + BOLA 配对
+- [x] `bolaPairs`:owner→viewer 生成 compare work,不猜归属、不读真实数据
+- [ ] 清单与 `fairy_chain_materialize` 的自动接线
+- 验收:alice/bob/admin 批量就绪;scope 无 POST 拒绝;show 不含密码/cookie;配对 marker 正确。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |

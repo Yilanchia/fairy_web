@@ -111,6 +111,8 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `fairy_mission` | 一次有边界的任务:扫描→报告→入账→链规划 | 是 |
 | `web_login` | 单次登录并把会话存成命名 profile(不重试/不爆破) | 是 |
 | `web_session` | 会话管理:list/show/create/delete,不回显值 | 否 |
+| `fairy_accounts_provision` | 按清单批量登录,存命名会话 + 归属入账 | 是 |
+| `fairy_accounts_show` | 账号元数据与 BOLA 配对;不回显凭据 | 否 |
 | `web_compare` | 双会话差分:BOLA/IDOR/BFLA 证据骨架 | 是 |
 | `web_role_matrix` | 多账号 × 多端点权限矩阵(只读 GET) | 是 |
 | `fairy_reachability` | 最高授权后的只读身份/权限/资产图 | 是 |
@@ -185,6 +187,58 @@ node src/cli.js compare D:\work\lab http://127.0.0.1:8080/api/orders/2 --a bob -
 
 `web_scan` / `web_crawl` / `web_probe` / `web_report` 都接受 `--session`(MCP 里是 `session`),
 可以直接对登录后的页面/接口做只读检测。
+
+## 账号编排
+
+把“每次手递 cookie”压成一份清单。授权人写 `.fairy/accounts.json`:
+
+```json
+{
+  "schema": "FairyAccounts/v1",
+  "base_url": "http://127.0.0.1:8080",
+  "accounts": [
+    {
+      "name": "alice",
+      "role": "user",
+      "login": {
+        "url": "http://127.0.0.1:8080/login",
+        "method": "POST",
+        "fields": { "username": "alice" },
+        "password_env": "FAIRY_ACCT_ALICE"
+      },
+      "owns": [
+        { "marker": "ALICE-ORDER-7001", "url": "/api/orders/7001" }
+      ]
+    },
+    {
+      "name": "bob",
+      "role": "user",
+      "login": {
+        "url": "http://127.0.0.1:8080/login",
+        "method": "POST",
+        "fields": { "username": "bob" },
+        "password_env": "FAIRY_ACCT_BOB"
+      }
+    }
+  ]
+}
+```
+
+```powershell
+$env:FAIRY_ACCT_ALICE = "..."
+$env:FAIRY_ACCT_BOB = "..."
+node src/cli.js accounts D:\work\lab
+node src/cli.js accounts D:\work\lab --show
+```
+
+安全约束:
+
+- 密码只从 `password_env` 取;允许明文 `password` 但加载时告警。
+- `accounts.json` 在 `.fairy/` 下,不进仓库;建议 0600。
+- 每个账号只登录一次,不重试、不爆破。
+- 登录是写操作,scope 的 `methods` 必须含 POST。
+- `--show` 只给 name/role/owns.marker/会话是否就绪,不给密码、cookie、token。
+- `bolaPairs` 按归属生成 `compare` work:对象所有者 A + 另一个账号 B,不猜归属、不读真实数据。
 
 ## 权限矩阵
 
@@ -591,6 +645,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.16 最高授权闸:HMAC 授权 + 只读可达性图,不解锁横向执行
 - [x] v0.17 证据闭环:统一 ingest + 跨工具报告,Verdex 发现回流账本
 - [x] v0.18.0 账本驱动自治:派生 context + worker 观察回灌 fact
+- [x] v0.18.1 账号编排:accounts manifest → 批量登录 → BOLA 配对
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

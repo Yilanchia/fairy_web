@@ -59,7 +59,7 @@ export function startLab() {
           const form = new URLSearchParams(raw);
           const user = form.get("username") || form.get("user");
           const pass = form.get("password") || form.get("pass");
-          if (pass === "secret" && (user === "alice" || user === "bob")) {
+          if (pass === "secret" && (user === "alice" || user === "bob" || user === "admin")) {
             res.writeHead(302, { location: "/account", "set-cookie": `sid=${user}; Path=/; HttpOnly` });
             res.end();
           } else {

@@ -46,6 +46,7 @@ import { autoRun } from "./auto.js";
 import { runRoleMatrix } from "./matrix.js";
 import { runReachability } from "./reachability.js";
 import { ingestPayload, ingestFile } from "./ingest.js";
+import { provisionAccounts, showAccounts } from "./accounts.js";
 import { writeLedgerReport } from "./evidence-report.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
@@ -628,6 +629,30 @@ const TOOLS = [
     },
   },
   {
+    name: "fairy_accounts_provision",
+    description:
+      "按 .fairy/accounts.json 批量登录一次,存成命名会话并把账号/归属写入账本。密码只从 password_env 取;不重试、不爆破、不回显凭据。",
+    inputSchema: {
+      type: "object",
+      required: ["project"],
+      properties: {
+        project: { type: "string" },
+        only: { type: "array", items: { type: "string" }, description: "只登录指定账号名。" },
+      },
+    },
+    run: async (args) => provisionAccounts(projectOf(args), { only: args.only }),
+  },
+  {
+    name: "fairy_accounts_show",
+    description: "只读账号清单元数据:name/role/owns.marker/会话是否就绪;绝不返回密码、cookie、token。",
+    inputSchema: {
+      type: "object",
+      required: ["project"],
+      properties: { project: { type: "string" } },
+    },
+    run: async (args) => showAccounts(projectOf(args)),
+  },
+  {
     name: "web_session",
     description:
       "管理命名会话 profile:list 列出、show 看元数据(只给头名,不给值)、create 手动塞 Cookie/Authorization、delete 删除。会话默认 AES-256-GCM(设 FAIRY_SESSION_KEY)或 0600 明文并带警告。",
@@ -1126,6 +1151,7 @@ const CLOSED_WORLD = new Set([
   "fairy_ledger_ingest",
   "fairy_ingest",
   "fairy_report_bundle",
+  "fairy_accounts_show",
   "fairy_chain_materialize",
   "fairy_planner_tick",
   "web_session",

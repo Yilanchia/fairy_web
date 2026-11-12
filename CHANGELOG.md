@@ -3,6 +3,26 @@
 All notable changes to Fairy / Web. The project follows semantic versioning for
 the CLI/MCP surface; evidence schemas use `Fairy*/v1` and are additive.
 
+## 0.18.1 — 2026-11-12
+
+### Added
+
+- `.fairy/accounts.json` (`FairyAccounts/v1`) with name, role, login spec and
+  explicit object ownership markers.
+- `provisionAccounts`: one login per account into a named session, with account
+  assets and ownership facts written to the ledger.
+- `showAccounts`: metadata plus `bola_pairs`; never returns passwords, cookies
+  or tokens.
+- `bolaPairs`: owner→viewer `compare` work generation from explicit ownership.
+- MCP tools `fairy_accounts_provision` and `fairy_accounts_show`; CLI
+  `accounts [--only] [--show]`.
+
+### Security
+
+- Passwords come from `password_env`; plain `password` is allowed but warned.
+- Login is a write operation and requires POST in scope `limits.methods`.
+- No retries, no brute force, no credential echo.
+
 ## 0.18.0 — 2026-11-12
 
 ### Added
