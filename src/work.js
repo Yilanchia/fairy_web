@@ -65,6 +65,37 @@ const RULES = {
   },
 };
 
+// 从账本 + 会话清单派生 work 推断用的 context。
+// 纯函数:不发请求、不读 session 明文,只读资产与会话名。
+export function deriveContext(ledger, extras = {}) {
+  const derived = {};
+  const assets = Array.isArray(ledger?.assets) ? ledger.assets : [];
+  const host = assets.find((asset) => asset.type === "host");
+  if (host && host.value) {
+    const hostname = String(host.value).split(":")[0];
+    const local = /^(localhost|127\.|10\.|192\.168\.|172\.(?:1[6-9]|2\d|3[01])\.)/.test(hostname);
+    derived.base_url = `${local ? "http" : "https"}://${host.value}`;
+  }
+
+  const endpoint = assets.find((asset) => asset.type === "endpoint" && String(asset.value).includes("?"));
+  if (endpoint && derived.base_url) {
+    try {
+      const url = new URL(endpoint.value, derived.base_url);
+      derived.url = url.href;
+      const firstParam = [...url.searchParams.keys()][0];
+      if (firstParam) derived.param = firstParam;
+    } catch {
+      // 不合法的 endpoint 不阻断;显式 context 仍可覆盖。
+    }
+  }
+
+  const sessions = Array.isArray(extras.sessions) ? extras.sessions : [];
+  if (sessions[0]) derived.session_a = sessions[0];
+  if (sessions[1]) derived.session_b = sessions[1];
+
+  return { ...derived, ...(extras.context || {}) };
+}
+
 export function inferWork(chainId, stepIndex, context = {}) {
   const rule = RULES[chainId] && RULES[chainId][stepIndex];
   if (!rule) return null;

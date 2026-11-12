@@ -333,6 +333,24 @@ npm run bench
 请求数、单条发现成本。当前的基线是 100% / 100% / 3.5 请求一条;这只能说明
 “已知类别没退化”,不是对外产品评测。
 
+## 账本驱动自治
+
+`fairy_auto_run` 不喂 context 时,planner 会从账本派生:
+
+- `base_url`:第一个 host 资产(私网 IP 自动用 http,否则 https);
+- `url` / `param`:第一个带查询串的 endpoint 资产;
+- `session_a` / `session_b`:已保存会话的前两个名字。
+
+显式 `context` 永远覆盖派生值,派生过程不发请求、不读会话明文。
+
+worker 执行完会把可判定的观察回灌成 fact:
+
+- probe 到 `/.git/config` 200 → `git 配置可读`;
+- compare 得 `marker-in-both` → `越权候选`;
+- param 命中 → `参数探针命中 <kind>`。
+
+fact 只记 observed,不自动造 finding,也不自动 approve。下一轮 tick 据此推进。
+
 ## 证据闭环
 
 所有工具的结果都走同一个入口,而不是各自为战:
@@ -572,6 +590,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.15 权限矩阵:多账号 × 多端点,识别 BFLA/IDOR 候选
 - [x] v0.16 最高授权闸:HMAC 授权 + 只读可达性图,不解锁横向执行
 - [x] v0.17 证据闭环:统一 ingest + 跨工具报告,Verdex 发现回流账本
+- [x] v0.18.0 账本驱动自治:派生 context + worker 观察回灌 fact
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

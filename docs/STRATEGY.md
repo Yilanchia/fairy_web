@@ -180,6 +180,14 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [ ] 报告与披露模板合一、状态流转可视化
 - 验收:param + Verdex 入同一账本;bundle 报告同时出现两种来源;重复导入 skipped。
 
+### v0.18.0 账本驱动自治
+- [x] `deriveContext`:从 host/endpoint/会话名派生 base_url/url/param/session
+- [x] `materializeChain` 不喂 context 也能推断只读 work
+- [x] worker 把 probe/compare/param 的可判定观察回灌成 fact
+- [x] fact 只记 observed,不自动造 finding、不自动 approve
+- [ ] 事件驱动跨轮推进(新 fact → 自动 tick)
+- 验收:无 context 落单 git 链 step1;worker 命中 git/越权后账本出现对应 fact 且幂等。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |

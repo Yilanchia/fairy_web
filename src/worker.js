@@ -1,4 +1,4 @@
-import { loadLedger, appendLedger, completeIntent } from "./ledger.js";
+import { loadLedger, appendLedger, addFact, completeIntent } from "./ledger.js";
 import { Guard } from "./guard.js";
 import { loadSession } from "./session.js";
 import { compare } from "./auth.js";
@@ -13,6 +13,46 @@ const ACTIONS = new Set(["probe", "compare", "browser", "param", "param_adaptive
 function withSession(projectDir, name, headers = {}) {
   if (!name) return headers;
   return { ...loadSession(projectDir, name).headers, ...headers };
+}
+
+// 把 worker 动作的输出归一成 0..N 条事实。只记可判定的观察,不编造漏洞。
+function factsFromResult(action, output) {
+  const facts = [];
+  const baseRequestId = output?.request_id || output?.a?.request_id || output?.b?.request_id || null;
+  const evidence = (url, note, requestId = baseRequestId) => [
+    { kind: "http", request_id: requestId || null, url: url || null, note },
+  ];
+
+  if (action === "probe" && output?.status === 200 && /\/\.git\/config$/.test(output.url || "")) {
+    facts.push({
+      statement: `git 配置可读:${output.url}`,
+      confidence: "observed",
+      tags: ["git", "exposed"],
+      evidence: evidence(output.url, "worker probe 200"),
+    });
+  }
+
+  if (action === "compare" && output?.verdict === "marker-in-both") {
+    facts.push({
+      statement: `越权候选:${output.url} 标记在两账号均可见`,
+      confidence: "observed",
+      tags: ["bola", "idor"],
+      evidence: evidence(output.url, `verdict=${output.verdict}`),
+    });
+  }
+
+  if ((action === "param" || action === "param_adaptive") && Array.isArray(output?.findings)) {
+    for (const finding of output.findings) {
+      facts.push({
+        statement: `参数探针命中 ${finding.kind}:${finding.where || output.targets?.[0] || ""}`,
+        confidence: "observed",
+        tags: ["param", finding.kind],
+        evidence: evidence(finding.where || output.targets?.[0], "存在性探针", finding.evidence?.request_id),
+      });
+    }
+  }
+
+  return facts;
 }
 
 function summarize(action, output) {
@@ -100,9 +140,11 @@ export async function runWorkerAction(projectDir, options = {}) {
   }
 
   const note = summarize(action, output).slice(0, 900);
+  const derivedFacts = factsFromResult(action, output);
   const saved = appendLedger(projectDir, (current) => {
     const target = current.intents.find((item) => item.id === intentId);
     if (!target) throw new Error(`intent 不存在:${intentId}`);
+    for (const fact of derivedFacts) addFact(current, fact);
     if (options.complete === false) return target;
     return completeIntent(current, intentId, { status: "done", note });
   });
@@ -113,6 +155,7 @@ export async function runWorkerAction(projectDir, options = {}) {
     action,
     result: output,
     intent: saved,
+    facts: derivedFacts.length,
     note: options.complete === false ? "结果已返回,意图保持 active" : "结果已写回,意图已完成",
   };
 }

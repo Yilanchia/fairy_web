@@ -17,6 +17,8 @@
   不读对象内容、不提权、不横向。
 - **最高授权**:`fairy_reachability` 需要 `.fairy/high-auth.json`(`FAIRY_AUTH_KEY`
   签名,仅 `read-only`);解锁只读可达性图,不解锁横向执行。`high-auth` 只能由授权人 CLI 运行。
+- **账本自治**:planner 从 host/endpoint/已存会话名派生 context;worker 把 probe/compare/param
+  的可判定观察回灌成 observed fact。fact 不自动造 finding,审批门不放行。
 - **证据闭环**:各工具结果用 `fairy_ingest` 归一进账本(scan/param/WAF/矩阵/可达性/Verdex),
   再用 `fairy_report_bundle` 出跨工具报告;重复导入幂等。
 - **自动循环**:`fairy_auto_run` 执行落单时声明好的 `work`;也可以给 `context`

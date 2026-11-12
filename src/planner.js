@@ -1,6 +1,7 @@
 import { loadLedger, appendLedger, addIntent } from "./ledger.js";
 import { planChains } from "./playbooks.js";
-import { inferWork } from "./work.js";
+import { deriveContext, inferWork } from "./work.js";
+import { listSessions } from "./session.js";
 
 // Planner:把一条 ready 链落成有依赖的意图序列。
 // Worker 不直接"打整条链",只领取依赖已满足的下一步;每完成一步再唤醒下一步。
@@ -44,13 +45,17 @@ export function materializeChain(projectDir, chainId, options = {}) {
       });
     }
 
+    const context = deriveContext(ledger, {
+      sessions: listSessions(projectDir).map((session) => session.name),
+      context: options.context || {},
+    });
+
     const intents = [];
     let dependsOn = [];
     for (let index = 0; index < chain.steps.length; index++) {
       const step = chain.steps[index];
       const goal = `${chain.title} · 步骤 ${index + 1}:${step.action}`.slice(0, 300);
-      const planned =
-        workPlan.get(index + 1) || inferWork(chainId, index + 1, options.context || {}) || null;
+      const planned = workPlan.get(index + 1) || inferWork(chainId, index + 1, context) || null;
       const intent = addIntent(ledger, {
         goal,
         depends_on: dependsOn,

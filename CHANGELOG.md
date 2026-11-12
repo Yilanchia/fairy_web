@@ -3,6 +3,23 @@
 All notable changes to Fairy / Web. The project follows semantic versioning for
 the CLI/MCP surface; evidence schemas use `Fairy*/v1` and are additive.
 
+## 0.18.0 — 2026-11-12
+
+### Added
+
+- `deriveContext`: derive `base_url`, `url`, `param`, `session_a` and
+  `session_b` from ledger assets and saved session names.
+- `materializeChain` now uses derived context when the caller does not pass one;
+  `git-source-leak` and other read-only chains can self-start from the ledger.
+- Worker observation feedback: probe/compare/param results are written back as
+  `observed` facts in the same transaction as intent completion; `addFact`
+  deduplication keeps repeated runs idempotent.
+
+### Security
+
+- Derivation is pure: no requests and no session plaintext reads.
+- Facts only; no automatic findings and no automatic approval.
+
 ## 0.17.0 — 2026-10-30
 
 ### Added
