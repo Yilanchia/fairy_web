@@ -112,6 +112,8 @@ node scripts/mount-dsh.mjs            # 默认 desktop profile,自动备份
 | `web_login` | 单次登录并把会话存成命名 profile(不重试/不爆破) | 是 |
 | `web_session` | 会话管理:list/show/create/delete,不回显值 | 否 |
 | `fairy_accounts_provision` | 按清单批量登录,存命名会话 + 归属入账 | 是 |
+| `fairy_accounts_seed` | 自建最小对象做 BOLA 归属真值 | 是 |
+| `fairy_accounts_register` | 单次邮箱注册;CAPTCHA/SMS 即停 | 是 |
 | `fairy_accounts_show` | 账号元数据与 BOLA 配对;不回显凭据 | 否 |
 | `fairy_proof` | 反射点 DOM 上下文判定,升置信/写 fact | 是 |
 | `fairy_memory_show` | 跨 engagement host 记忆;不含凭据 | 否 |
@@ -241,6 +243,50 @@ node src/cli.js accounts D:\work\lab --show
 - 登录是写操作,scope 的 `methods` 必须含 POST。
 - `--show` 只给 name/role/owns.marker/会话是否就绪,不给密码、cookie、token。
 - `bolaPairs` 按归属生成 `compare` work:对象所有者 A + 另一个账号 B,不猜归属、不读真实数据。
+
+### 自建对象(BOLA 真值)
+
+不给真实用户对象做越权证明,而是让测试账号自己建一个最小对象:
+
+```powershell
+node src/cli.js init D:\work\lab ... --methods GET,POST --allow-object-seeding true
+node src/cli.js accounts D:\work\lab
+node src/cli.js seed D:\work\lab --only alice --confirm
+```
+
+清单里给账号加 `seed`:
+
+```json
+"seed": {
+  "create": { "url": "/api/orders", "method": "POST", "json": true, "fields": { "item": "fairy-probe" } },
+  "extract": { "from": "json", "path": "id" },
+  "marker_path": "marker",
+  "item_url": "/api/orders/{id}"
+}
+```
+
+三重门禁:`allow_object_seeding=true` + `methods` 含 POST + `confirm=true`。
+每个账号只创建一个最小对象,不删、不改、不批量;marker 是自造归属真值。
+不写回 accounts.json,seeded owns 只在本次返回和账本事实中生效。
+
+### 自助注册(最后做、默认关)
+
+```powershell
+node src/cli.js init D:\work\lab ... --methods GET,POST --allow-account-provisioning true
+$env:FAIRY_ACCT_NEW = "..."
+node src/cli.js register D:\work\lab `
+  --signup http://127.0.0.1:8080/signup `
+  --email you@example.test `
+  --password-env FAIRY_ACCT_NEW `
+  --confirm
+```
+
+硬约束:
+
+- 遇到 CAPTCHA / 手机 / SMS / OTP 一律返回 `needs_human`,**不绕过、不识别、不重试**。
+- 邮箱验证只接受授权人从邮箱取出的一次性 `verification_url`;不轮询收件箱。
+- 密码只从 `password_env` 取;写回清单只写 env 名,不写明文。
+- 单次提交,不批量注册。
 
 ## 权限矩阵
 
@@ -537,6 +583,8 @@ node src/cli.js bundle D:\work\lab
     "allow_private": true,
     "allow_active_probes": false,
     "allow_waf_probe": false,
+    "allow_object_seeding": false,
+    "allow_account_provisioning": false,
     "verify_tls": true,
     "methods": ["GET", "HEAD", "OPTIONS"]
   }
@@ -631,6 +679,7 @@ src/
   replay.js      HAR 按 scope 重放与差分
   taxonomy.js    OWASP/CWE/CVSS/修复/复现归类
   artifacts.js   样本类型识别 + Verdex 链/后端预检
+  register.js    单次邮箱注册(反自动化控制即停)
   handoff.js     样本登记、下载、交接给 Verdex
   probe.js       参数级探测(SQLi/SSTI,只判存在)
   waf.js         WAF 指纹 + 编码规范化差异矩阵
@@ -687,6 +736,7 @@ scripts/         demo 靶场、Verdex 桥、dsh 挂载
 - [x] v0.18.0 账本驱动自治:派生 context + worker 观察回灌 fact
 - [x] v0.18.1 账号编排:accounts manifest → 批量登录 → BOLA 配对
 - [x] v0.18.2 证据深度 + 记忆:proof 上下文判定 + host 元数据记忆
+- [x] v0.19 自建对象 + 单次注册:归属真值、反自动化控制即停
 - [ ] 角色/权限矩阵:普通用户 vs 管理员端点
 - [ ] Fairy 记忆:跨 engagement 记录"这个站踩过什么坑"
 

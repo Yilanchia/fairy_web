@@ -204,6 +204,14 @@ Discipline  ROE / 证据分级 / 审批门 / 数据分级 / 披露包
 - [x] 记忆不存 cookie/凭据/正文/marker
 - 验收:script 反射升 high 并写 fact;文本反射不升级;记忆文件无凭据;WAF 厂商可召回。
 
+### v0.19 自建对象 + 单次注册
+- [x] `allow_object_seeding` / `allow_account_provisioning` 默认 false
+- [x] `fairy_accounts_seed`:每账号创建一个最小对象,提取 id/marker,生成 BOLA 配对
+- [x] `fairy_accounts_register`:单次邮箱注册,写回 accounts.json 只写 password_env
+- [x] CAPTCHA/手机/SMS/OTP → `needs_human`,不识别、不绕过、不重试
+- [x] 邮箱验证只接受人工 `verification_url`,不轮询收件箱
+- 验收:对象播种生成自造归属;注册成功写清单且无明文密码;CAPTCHA 页不提交。
+
 ## 6. 质量指标(比"扫了多少"更重要)
 
 | 指标 | 目标 |

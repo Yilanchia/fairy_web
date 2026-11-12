@@ -16,6 +16,7 @@ function json(res, status, body) {
 
 // 自建靶场:只监听 127.0.0.1,故意带一批典型配置问题,用来验证检测链路。
 export function startLab() {
+  let seedSeq = 7000;
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
     const path = url.pathname;
@@ -85,6 +86,70 @@ export function startLab() {
       }
       html(`${sid} account`, `<div>${sid} account</div>`);
       return;
+    }
+    if (path === "/signup") {
+      if (req.method === "POST") {
+        let raw = "";
+        req.on("data", (chunk) => {
+          raw += chunk;
+        });
+        req.on("end", () => {
+          html("Signup", "<div>welcome to fairy</div>");
+        });
+        return;
+      }
+      html(
+        "Signup",
+        '<form method="post" action="/signup"><input name="email"><input name="password" type="password"><input type="hidden" name="csrf" value="signup-token"></form>',
+      );
+      return;
+    }
+    if (path === "/signup-verify") {
+      if (req.method === "POST") {
+        let raw = "";
+        req.on("data", (chunk) => {
+          raw += chunk;
+        });
+        req.on("end", () => {
+          html("Signup", "<div>check your email to verify</div>");
+        });
+        return;
+      }
+      html(
+        "Signup",
+        '<form method="post" action="/signup-verify"><input name="email"><input name="password" type="password"></form>',
+      );
+      return;
+    }
+    if (path === "/signup/verify") {
+      html("Verified", "<div>verified</div>");
+      return;
+    }
+    if (path === "/signup-captcha") {
+      html(
+        "Signup",
+        '<form method="post" action="/signup-captcha"><input name="email"><input name="password" type="password"><input name="captcha"><div class="g-recaptcha"></div></form>',
+      );
+      return;
+    }
+    if (path === "/seed" && req.method === "POST") {
+      const sid = cookieValue(req, "sid");
+      if (!sid) return json(res, 401, { error: "login required" });
+      let raw = "";
+      req.on("data", (chunk) => {
+        raw += chunk;
+      });
+      req.on("end", () => {
+        const id = String(++seedSeq);
+        json(res, 200, { id, marker: `SEED-${id}`, owner: sid, input: raw.slice(0, 80) });
+      });
+      return;
+    }
+    if (path.startsWith("/seed/")) {
+      const sid = cookieValue(req, "sid");
+      if (!sid) return json(res, 401, { error: "login required" });
+      const id = path.slice("/seed/".length);
+      return json(res, 200, { id, marker: `SEED-${id}`, owner: "alice" });
     }
     if (path === "/api/orders/1") {
       const sid = cookieValue(req, "sid");

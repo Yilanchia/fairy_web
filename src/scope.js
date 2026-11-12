@@ -19,6 +19,8 @@ export const DEFAULT_LIMITS = {
   allow_private: false,
   allow_active_probes: false,
   allow_waf_probe: false,
+  allow_object_seeding: false,
+  allow_account_provisioning: false,
   methods: ["GET", "HEAD", "OPTIONS"],
 };
 
@@ -159,6 +161,8 @@ export function normalizeScope(raw) {
         : inputLimits.allow_private === true,
     allow_active_probes: inputLimits.allow_active_probes === true,
     allow_waf_probe: inputLimits.allow_waf_probe === true,
+    allow_object_seeding: inputLimits.allow_object_seeding === true,
+    allow_account_provisioning: inputLimits.allow_account_provisioning === true,
     methods: DEFAULT_LIMITS.methods.slice(),
   };
 

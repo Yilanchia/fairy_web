@@ -23,9 +23,10 @@ import { runRoleMatrix } from "./matrix.js";
 import { createHighAuth } from "./highauth.js";
 import { runReachability } from "./reachability.js";
 import { ingestFile } from "./ingest.js";
-import { provisionAccounts, showAccounts } from "./accounts.js";
+import { provisionAccounts, showAccounts, seedAccounts } from "./accounts.js";
 import { proofFinding } from "./proof.js";
 import { showMemory } from "./memory.js";
+import { registerAccount } from "./register.js";
 import { writeLedgerReport } from "./evidence-report.js";
 import { loadSession, saveSession, listSessions, describeSession, deleteSession } from "./session.js";
 import { startMcpServer } from "./mcp.js";
@@ -47,6 +48,8 @@ const HELP = `Fairy Web — 授权范围内的 web 侦察/检测手
   node src/cli.js high-auth <project> --basis "..." --approver "..." --assets "host1,host2" [--hours 24]
   node src/cli.js reachability <project> <url...> --sessions alice,bob
   node src/cli.js accounts <project> [--only alice,bob] [--show]
+  node src/cli.js seed <project> [--only alice,bob] --confirm
+  node src/cli.js register <project> --signup <url> --email <mail> --password-env NAME --confirm
   node src/cli.js proof <project> <finding_id> [--url ...] [--param q] [--session alice]
   node src/cli.js memory [--host example.com]
   node src/cli.js matrix <project> <url...> --sessions alice,bob [--no-anon]
@@ -153,6 +156,12 @@ try {
     }
     if (args["allow-waf-probe"] !== undefined) {
       limits.allow_waf_probe = boolOption(args["allow-waf-probe"]);
+    }
+    if (args["allow-object-seeding"] !== undefined) {
+      limits.allow_object_seeding = boolOption(args["allow-object-seeding"]);
+    }
+    if (args["allow-account-provisioning"] !== undefined) {
+      limits.allow_account_provisioning = boolOption(args["allow-account-provisioning"]);
     }
     const saved = saveScope(project, {
       schema: "FairyScope/v1",
@@ -441,6 +450,31 @@ try {
     );
   } else if (command === "memory") {
     print(showMemory(args.host));
+  } else if (command === "seed") {
+    const project = path.resolve(args._[0] || process.cwd());
+    print(
+      await seedAccounts(project, {
+        only: args.only ? String(args.only).split(",") : undefined,
+        confirm: boolOption(args.confirm, false),
+      }),
+    );
+  } else if (command === "register") {
+    const project = path.resolve(args._[0] || process.cwd());
+    print(
+      await registerAccount(project, {
+        signupUrl: args.signup,
+        email: args.email,
+        passwordEnv: args["password-env"],
+        name: args.name,
+        role: args.role,
+        username: args.username,
+        loginUrl: args["login-url"],
+        verificationUrl: args["verification-url"],
+        fields: args.fields ? JSON.parse(String(args.fields)) : {},
+        loginFields: args["login-fields"] ? JSON.parse(String(args["login-fields"])) : {},
+        confirm: boolOption(args.confirm, false),
+      }),
+    );
   } else if (command === "matrix") {
     const project = path.resolve(args._[0] || process.cwd());
     const urls = args._.slice(1);

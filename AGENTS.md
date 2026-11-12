@@ -19,6 +19,10 @@
   签名,仅 `read-only`);解锁只读可达性图,不解锁横向执行。`high-auth` 只能由授权人 CLI 运行。
 - **账号编排**:`.fairy/accounts.json` 由授权人维护;`fairy_accounts_provision` 批量登录成
   命名会话,`fairy_accounts_show` 只回元数据与 BOLA 配对。密码只走 `password_env`,不回显。
+- **自建对象**:`fairy_accounts_seed` 需要 allow_object_seeding + POST + confirm;每账号只建一个
+  最小对象,不删不改不批量。
+- **自助注册**:`fairy_accounts_register` 需要 allow_account_provisioning + POST + confirm;
+  CAPTCHA/手机/SMS/OTP 一律 needs_human,不绕过;邮箱验证只用人工给的一次性链接。
 - **证据深度**:`fairy_proof` 只做 DOM 上下文判定;script/事件属性 + 弱 CSP 才升 confidence,
   不生成载荷、不自动 verified。
 - **记忆**:`fairy_memory_show` 只读 host 元数据(tech/waf/路径/参数/发现类型),不含凭据。

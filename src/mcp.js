@@ -46,9 +46,10 @@ import { autoRun } from "./auto.js";
 import { runRoleMatrix } from "./matrix.js";
 import { runReachability } from "./reachability.js";
 import { ingestPayload, ingestFile } from "./ingest.js";
-import { provisionAccounts, showAccounts } from "./accounts.js";
+import { provisionAccounts, showAccounts, seedAccounts } from "./accounts.js";
 import { proofFinding } from "./proof.js";
 import { showMemory } from "./memory.js";
+import { registerAccount } from "./register.js";
 import { writeLedgerReport } from "./evidence-report.js";
 
 const PROTOCOL_VERSION = "2024-11-05";
@@ -69,6 +70,8 @@ const LIMITS_SCHEMA = {
     allow_private: { type: "boolean" },
     allow_active_probes: { type: "boolean" },
     allow_waf_probe: { type: "boolean" },
+    allow_object_seeding: { type: "boolean" },
+    allow_account_provisioning: { type: "boolean" },
     verify_tls: { type: "boolean" },
     methods: { type: "array", items: { type: "string" } },
   },
@@ -678,6 +681,62 @@ const TOOLS = [
       },
     },
     run: async (args) => provisionAccounts(projectOf(args), { only: args.only }),
+  },
+  {
+    name: "fairy_accounts_register",
+    description:
+      "单次自助注册:仅邮箱注册,遇到 CAPTCHA/手机/SMS/OTP 立即 needs_human;邮箱验证只接受人工提供的 verification_url。需要 allow_account_provisioning + POST + confirm=true。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "signup_url", "email", "password_env", "confirm"],
+      properties: {
+        project: { type: "string" },
+        signup_url: { type: "string" },
+        email: { type: "string" },
+        password_env: { type: "string", description: "环境变量名,不是密码值。" },
+        name: { type: "string" },
+        role: { type: "string" },
+        username: { type: "string" },
+        login_url: { type: "string" },
+        verification_url: { type: "string", description: "授权人从邮箱取出的一次性验证链接。" },
+        fields: { type: "object" },
+        login_fields: { type: "object" },
+        confirm: { type: "boolean" },
+      },
+    },
+    run: async (args) =>
+      registerAccount(projectOf(args), {
+        signupUrl: args.signup_url,
+        email: args.email,
+        passwordEnv: args.password_env,
+        name: args.name,
+        role: args.role,
+        username: args.username,
+        loginUrl: args.login_url,
+        verificationUrl: args.verification_url,
+        fields: args.fields || {},
+        loginFields: args.login_fields || {},
+        confirm: args.confirm === true,
+      }),
+  },
+  {
+    name: "fairy_accounts_seed",
+    description:
+      "对象播种:每个账号创建一个最小测试对象,提取 id 作为归属 marker,生成 BOLA 配对。需要 scope allow_object_seeding + POST + confirm=true;不删、不改、不批量。",
+    inputSchema: {
+      type: "object",
+      required: ["project", "confirm"],
+      properties: {
+        project: { type: "string" },
+        only: { type: "array", items: { type: "string" } },
+        confirm: { type: "boolean" },
+      },
+    },
+    run: async (args) =>
+      seedAccounts(projectOf(args), {
+        only: args.only,
+        confirm: args.confirm === true,
+      }),
   },
   {
     name: "fairy_accounts_show",

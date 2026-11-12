@@ -3,6 +3,27 @@
 All notable changes to Fairy / Web. The project follows semantic versioning for
 the CLI/MCP surface; evidence schemas use `Fairy*/v1` and are additive.
 
+## 0.19.0 — 2026-11-12
+
+### Added
+
+- `fairy_accounts_seed`: create one minimal object per account as BOLA ground
+  truth; extract id/marker and generate `bola_pairs`.
+- `fairy_accounts_register`: one email registration attempt; writes only
+  `password_env` into `.fairy/accounts.json`.
+- Scope flags `allow_object_seeding` and `allow_account_provisioning`, default
+  false; both also require POST and `confirm=true`.
+
+### Security
+
+- Object seeding never deletes or modifies existing objects and does not write
+  seeded ownership back to the accounts manifest.
+- Registration stops at CAPTCHA/phone/SMS/OTP with `needs_human`; no bypass,
+  no retries, no SMS handling.
+- Email verification accepts only an operator-provided one-time
+  `verification_url`; no inbox polling.
+- Passwords are never written to the manifest or returned.
+
 ## 0.18.2 — 2026-11-12
 
 ### Added
