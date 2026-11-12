@@ -22,6 +22,11 @@ the CLI/MCP surface; evidence schemas use `Fairy*/v1` and are additive.
 - Proof never generates payloads and never auto-verifies findings.
 - Memory excludes cookies, credentials, response bodies and markers.
 
+### Fixed
+
+- Browser close now destroys child stdio pipes and unrefs the child, so Node 22
+  test processes exit after headless Chrome runs instead of hanging.
+
 ## 0.18.1 — 2026-11-12
 
 ### Added

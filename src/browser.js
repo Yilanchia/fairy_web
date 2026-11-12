@@ -224,6 +224,15 @@ async function launch(projectDir) {
       } catch {
         // ignore
       }
+      // Chrome 的子进程可能继承 stdio 管道;不销毁会让 Node 22 的事件循环一直挂着。
+      try {
+        child.stdout?.destroy();
+        child.stderr?.destroy();
+        child.stdin?.destroy();
+        child.unref();
+      } catch {
+        // ignore
+      }
       try {
         ws.close();
       } catch {
